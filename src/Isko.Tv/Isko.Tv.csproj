@@ -2,7 +2,10 @@
   <PropertyGroup>
     <!-- Default is a reference-assembly compilation, NOT a TV package. -->
     <TargetFramework Condition="'$(BuildForTizen)' != 'true'">net6.0</TargetFramework>
-    <TargetFramework Condition="'$(BuildForTizen)' == 'true'">net6.0-tizen9.0</TargetFramework>
+    <!-- The TV's .NET runtime decides the target: net6.0 is end-of-life for desktops, not for this device (see docs/install.md). -->
+    <CheckEolTargetFramework>false</CheckEolTargetFramework>
+    <IskoTizenTfm Condition="'$(IskoTizenTfm)' == ''">net6.0-tizen9.0</IskoTizenTfm>
+    <TargetFramework Condition="'$(BuildForTizen)' == 'true'">$(IskoTizenTfm)</TargetFramework>
     <OutputType>Exe</OutputType>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>

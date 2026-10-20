@@ -18,6 +18,14 @@ See [Samsung TV certificates](https://developer.samsung.com/smarttv/develop/gett
 and [Tizen .NET TV](https://developer.samsung.com/smarttv/develop/tizen-net-tv.html).
 Toolchain support and successful packaging are distinct from native playback.
 
+## .NET version
+
+The app targets `net6.0-tizen9.0`. Microsoft has ended support for .NET 6, so builds show a warning that the project
+silences on purpose: the runtime that matters is the one on the TV. A `net8.0-tizen9.0` build compiles with the
+current Samsung workload (`--target-framework net8.0-tizen9.0`), but on the tested Tizen 9 TV that package installed
+and then did not run: the process restarted at once and nothing connected to the test server. Do not move the
+device target to .NET 8 until a TV demonstrably runs it; keep `net6.0-tizen9.0`.
+
 ## Private configuration
 
 ```sh

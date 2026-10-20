@@ -9,7 +9,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   portable-checks:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04 # pinned; moving to a newer image is a deliberate change
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4

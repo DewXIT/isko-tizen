@@ -7,6 +7,13 @@ Compilation, portable C# checks, JS DOM doubles, host HTTP checks, device packag
 and real TV execution are different evidence. No TV test or deployment is performed
 for this initial import. Hardware video/input/protection/lifecycle remain unverified.
 
+## .NET 8 device target (2026-10-20)
+
+`net8.0-tizen9.0` builds with the Samsung workload (framework-dependent package, `Microsoft.NETCore.App` 8.0.0).
+On the physical TV it installed, but the process did not stay up and the fixture page was never requested, while the
+`net6.0-tizen9.0` build of the same source runs. Conclusion: that TV has no usable .NET 8 runtime for this package.
+The reference-compile and CI builds stay on net6.0; the end-of-life warning is silenced for that reason.
+
 ## First on-device protection run (2026-10-20)
 
 Physical TV, a private signed developer package built from `main` plus the changes listed here, and a

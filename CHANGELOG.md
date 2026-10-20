@@ -15,6 +15,9 @@
 
 - The `Verify` GitHub Actions workflow is now active (portable checks only).
 
+- `--target-framework` option for the packaging helper; the Tizen target framework is a build property. The .NET 8 device target was tried and does not run on the tested TV.
+- CI pinned to `ubuntu-24.04`; nullable annotations enabled in the core test project; the .NET 6 end-of-life warning is silenced deliberately.
+
 ### Fixed
 
 - The request interceptor is registered once per page. Unregistering it on a live page (protection off or a site exception) stalled the page on a TV.
