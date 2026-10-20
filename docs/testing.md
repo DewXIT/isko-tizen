@@ -55,13 +55,13 @@ Source/test/tool code matches the reviewed baseline. Logo pixel payload is
 unchanged; only non-pixel provenance metadata was removed. Public-data checks
 cover staged source and root-commit contents before publishing.
 
-## CI template
+## CI
 
-The repository includes tools/ci/verify.example.yml as an inactive template. To
-enable it, use GitHub's web editor or a credential permitted to create workflows,
-and copy it to .github/workflows/verify.yml. The source does not configure accounts
-or change GitHub permissions.
-New local page-input and packaging/privacy checks are included in that template.
+`.github/workflows/verify.yml` runs on every push and pull request (read-only token, 20 minute limit): the API12
+reference build, the protection and core tests (including the hidden-member audit), the page-script, diagnostics and
+packaging tests, the fixture server tests, a check that `tools/tv/device-harness.patch` still applies, and the
+public-data gate. It does not run on a TV and never signs or installs anything; a green run is a portable check, not
+a device result.
 
 ## Future device work
 

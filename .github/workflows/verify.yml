@@ -1,0 +1,42 @@
+name: Verify
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  portable-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            6.0.x
+            8.0.x
+      - name: Compile the browser against the API12 reference assemblies (not a TPK, not a TV run)
+        run: dotnet build src/Isko.Tv/Isko.Tv.csproj -c Release
+      - name: Protection policy, rule engine and download policy
+        run: dotnet run --project tests/Isko.Protection.Tests/Isko.Protection.Tests.csproj -c Release
+      - name: View ownership checks and API12 hidden-member audit
+        run: dotnet run --project tests/Isko.Core.Tests/Isko.Core.Tests.csproj -c Release -- src/Isko.Tv/bin/Release/net6.0/Isko.Tv.dll
+      - name: Page scripts (DOM doubles), diagnostics fallback and packaging plan
+        run: |
+          node tests/page-scripts.test.js
+          node tests/diagnostics.test.js
+          node tests/packaging.test.cjs
+      - name: Fixture server handlers and real HTTP checks
+        run: |
+          node tools/fixture-server/test-handlers.js
+          node tools/fixture-server/test.js
+      - name: Device harness patch still applies
+        run: git apply --check tools/tv/device-harness.patch
+      - name: Public-data gate (credentials, LAN addresses, owner paths, private files)
+        run: node tools/check-public-data.cjs

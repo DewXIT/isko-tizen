@@ -123,8 +123,7 @@ versions remain separate requirements. Existing .NET 6 support warnings are visi
 
 Optional fixture servers bind loopback by default. See [fixtures](docs/fixtures.md)
 for explicit LAN testing. No test server or remote-control client is bundled into
-normal TV packages. A CI workflow is provided as
-[an inactive template](tools/ci/verify.example.yml); see [verification](docs/testing.md).
+normal TV packages. The portable checks also run in GitHub Actions ([workflow](.github/workflows/verify.yml)); see [verification](docs/testing.md).
 
 Read [architecture](docs/app.md), [browser/video limits](docs/browser-video-analysis.md),
 [engine hooks](docs/engine-hooks.md), [API audit](docs/nui-api12.md),

@@ -18,7 +18,7 @@ English and Polish reports are welcome.
 
 Portable checks and documentation need no TV. Device installation uses your own
 private configuration and signing profile; see [installation](docs/install.md).
-The CI workflow is currently an inactive template, so report local results explicitly.
+The `Verify` workflow runs the portable checks on every push and pull request; it does not run on a TV, so report any device results explicitly.
 
 ## Design constraints
 

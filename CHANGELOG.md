@@ -11,6 +11,10 @@
 - Back slot on the control bar becomes Close when there is no history.
 - Developer-only `--start-url` build option and fixture event channel for unattended device runs; device session checklist.
 
+### Changed
+
+- The `Verify` GitHub Actions workflow is now active (portable checks only).
+
 ### Fixed
 
 - The request interceptor is registered once per page. Unregistering it on a live page (protection off or a site exception) stalled the page on a TV.
