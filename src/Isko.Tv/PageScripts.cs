@@ -76,11 +76,14 @@ internal static class PageScripts
         const layer=n=>{if(n.nodeType!==1)return null;if(big(n)&&clean(n))return n;
           const kids=n.shadowRoot?[...n.shadowRoot.children]:[];
           for(const c of kids)if(c.nodeType===1&&big(c)&&clean(c))return n;return null};
-        const sweep=()=>{if(!window.__iskoSweepOn||document.fullscreenElement)return;
-          for(const n of [...document.body.children]){let t=null;try{t=layer(n)}catch(_){}
-            if(t){t.style.setProperty('display','none','important');t.remove();window.__iskoSwept=(window.__iskoSwept||0)+1}}};
+        const one=n=>{let t=null;try{t=layer(n)}catch(_){}
+          if(t){t.style.setProperty('display','none','important');t.remove();window.__iskoSwept=(window.__iskoSwept||0)+1}};
+        // Observer records name only the added nodes, so a busy page costs work per added node, not per child.
+        const sweep=records=>{if(!window.__iskoSweepOn||document.fullscreenElement)return;
+          if(records&&records.length!==undefined){for(const r of records)for(const n of r.addedNodes)one(n)}
+          else for(const n of [...document.body.children])one(n)};
         if(!window.__iskoSweep){window.__iskoSweep=true;new MutationObserver(sweep).observe(document.body,{childList:true})}
-        sweep();";
+        sweep(null);";
     public static string SweepOverlays(bool on) => "(()=>{window.__iskoSweepOn=" + (on ? "true" : "false") + ";" + SweepBody + "})()";
     // Page-side supplement to the native refusal: a download link is never followed, however it is triggered.
     public const string BlockDownloadLinks = @"(()=>{if(window.__iskoDl)return;window.__iskoDl=true;

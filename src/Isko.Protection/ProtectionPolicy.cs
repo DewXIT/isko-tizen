@@ -62,8 +62,25 @@ namespace Isko.Protection
         // Set before the policy is published; a published policy is never mutated.
         public void SetFilters(FilterSet set) { filters = set ?? FilterSet.Empty; }
         public FilterSet Filters { get { return filters; } }
+        // The page URL is the same for every request of a page, so it is parsed once and remembered. The memo is a
+        // single immutable object swapped by reference: a racing reader sees either the old or the new pair.
+        private sealed class PageMemo
+        {
+            public readonly string Url, Host; // Host is null when Url is not a plain http(s) address
+            public PageMemo(string url, string host) { Url = url; Host = host; }
+        }
+        private PageMemo pageMemo = new PageMemo(null, null);
+        private string PageHostOf(string url)
+        {
+            var memo = System.Threading.Volatile.Read(ref pageMemo);
+            if (memo.Url != null && String.Equals(memo.Url, url, StringComparison.Ordinal)) return memo.Host;
+            Uri uri;
+            string host = UrlSafety.TryHttpUri(url, out uri) ? uri.IdnHost : null;
+            if (url != null) System.Threading.Volatile.Write(ref pageMemo, new PageMemo(url, host));
+            return host;
+        }
         private bool Exempt(string url)
-        { Uri uri; return exceptions.Count != 0 && UrlSafety.TryHttpUri(url, out uri) && exceptions.Contains(uri.IdnHost); }
+        { string host; return exceptions.Count != 0 && (host = PageHostOf(url)) != null && exceptions.Contains(host); }
 
         public bool NeedsRequestInterception(string currentUrl) =>
             Enabled && (requestHosts.Count != 0 || requestRules.Count != 0 || filters.HasRequestRules) && !Exempt(currentUrl);
@@ -119,9 +136,9 @@ namespace Isko.Protection
             if (!Enabled || Exempt(currentUrl)) return RequestDisabled;
             Uri uri;
             if (!UrlSafety.TryHttpUri(url, out uri)) return RequestOutside;
-            if (requestHosts.Contains(uri.IdnHost)) return RequestHostBlocked;
+            if (requestHosts.Count != 0 && requestHosts.Contains(uri.IdnHost)) return RequestHostBlocked;
             foreach (var rule in requestRules) if (rule.Matches(uri)) return RequestPathBlocked;
-            if (filters.Match(currentUrl, url).Blocked) return RequestFilterBlocked;
+            if (filters.HasRequestRules && filters.Match(PageHostOf(currentUrl), uri).Blocked) return RequestFilterBlocked;
             return RequestAllowed;
         }
 

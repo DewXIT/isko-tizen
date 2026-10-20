@@ -76,7 +76,49 @@ namespace Isko.Protection
                 if (!ok) set.RejectedLineCount++;
             }
             set.hits = new int[set.lineByIndex.Count];
+            set.BuildIndex();
             return set;
+        }
+
+        // Lookup index for the hot path: host suffixes are hashed in place and verified by comparing characters,
+        // so matching a request host builds no substring.
+        private sealed class HostGroup
+        {
+            public string Host;
+            public List<NetRule> Rules;
+        }
+        private readonly Dictionary<int, List<HostGroup>> index = new Dictionary<int, List<HostGroup>>();
+
+        private void BuildIndex()
+        {
+            foreach (var pair in byHost)
+            {
+                int h = HashRange(pair.Key, 0);
+                List<HostGroup> groups;
+                if (!index.TryGetValue(h, out groups)) { groups = new List<HostGroup>(1); index[h] = groups; }
+                groups.Add(new HostGroup { Host = pair.Key, Rules = pair.Value });
+            }
+        }
+
+        // FNV-1a over the characters from start to the end (hosts are already lower case).
+        private static int HashRange(string s, int start)
+        {
+            unchecked
+            {
+                uint h = 2166136261;
+                for (int i = start; i < s.Length; i++) { h ^= s[i]; h *= 16777619; }
+                return (int)h;
+            }
+        }
+
+        private List<NetRule> RulesFor(string host, int start)
+        {
+            List<HostGroup> groups;
+            if (!index.TryGetValue(HashRange(host, start), out groups)) return null;
+            int length = host.Length - start;
+            foreach (var g in groups)
+                if (g.Host.Length == length && String.Compare(host, start, g.Host, 0, length, StringComparison.Ordinal) == 0) return g.Rules;
+            return null;
         }
 
         private bool AddLine(string line, int lineNumber)
@@ -165,31 +207,43 @@ namespace Isko.Protection
         public FilterMatch Match(string pageUrl, string requestUrl)
         {
             if (byHost.Count == 0) return default(FilterMatch);
-            Uri request;
+            Uri request, page;
             if (!UrlSafety.TryHttpUri(requestUrl, out request)) return default(FilterMatch);
-            string requestHost = request.IdnHost;
-            Uri page;
-            if (UrlSafety.TryHttpUri(pageUrl, out page) && SameSite(page.IdnHost, requestHost)) return default(FilterMatch);
+            return Match(UrlSafety.TryHttpUri(pageUrl, out page) ? page.IdnHost : null, request);
+        }
 
-            string target = request.PathAndQuery;
+        // Hot path (every request): the caller has parsed the page and the request once. pageHost is the
+        // page's IDN host, or null when unknown (then the request is treated as third-party).
+        public FilterMatch Match(string pageHost, Uri request)
+        {
+            if (byHost.Count == 0) return default(FilterMatch);
+            string requestHost = request.IdnHost;
+            if (pageHost != null && SameSite(pageHost, requestHost)) return default(FilterMatch);
+
+            string target = null; // path+query is built only when a path rule needs it
             NetRule block = null;
             string host = requestHost;
             bool ip = IsIpLiteral(host);
+            int start = 0;
             while (true)
             {
-                List<NetRule> list;
-                if (byHost.TryGetValue(host, out list))
+                List<NetRule> list = RulesFor(host, start);
+                if (list != null)
                     foreach (var rule in list)
                     {
-                        if (rule.Path != null && !GlobPrefix(rule.Path, target)) continue;
+                        if (rule.Path != null)
+                        {
+                            if (target == null) target = request.PathAndQuery;
+                            if (!GlobPrefix(rule.Path, target)) continue;
+                        }
                         if (rule.Exception) return new FilterMatch(false, true, rule.LineNumber);
                         if (block == null) block = rule;
                     }
                 if (ip) break;
-                int dot = host.IndexOf('.');
+                int dot = host.IndexOf('.', start);
                 if (dot < 0) break;
-                host = host.Substring(dot + 1);
-                if (host.IndexOf('.') < 0) break; // never look up a bare TLD
+                start = dot + 1;
+                if (host.IndexOf('.', start) < 0) break; // never look up a bare TLD
             }
             if (block == null) return default(FilterMatch);
             Interlocked.Increment(ref hits[block.Index]);
@@ -235,19 +289,41 @@ namespace Isko.Protection
 
         // ---- site comparison (heuristic: no public-suffix list; uncertain cases count as same site) ----
 
+        private static readonly string[] GenericSecondLevels = { "co", "com", "org", "net", "gov", "edu", "ac", "or", "ne", "go" };
+
         internal static bool SameSite(string a, string b)
         {
             if (String.Equals(a, b, StringComparison.OrdinalIgnoreCase)) return true;
             if (IsIpLiteral(a) || IsIpLiteral(b)) return false;
-            return String.Equals(SiteKey(a), SiteKey(b), StringComparison.OrdinalIgnoreCase);
+            int startA = SiteKeyStart(a), startB = SiteKeyStart(b);
+            int length = a.Length - startA;
+            return length == b.Length - startB && String.Compare(a, startA, b, startB, length, StringComparison.OrdinalIgnoreCase) == 0;
         }
 
-        internal static string SiteKey(string host)
+        internal static string SiteKey(string host) { return host.Substring(SiteKeyStart(host)); }
+
+        // Start index of the site key (last two labels, or three under a two-part suffix such as co.uk),
+        // found by scanning dots from the end so no label array or substring is built.
+        internal static int SiteKeyStart(string host)
         {
-            var labels = host.Split('.');
-            int keep = labels.Length >= 3 && IsTwoPartSuffix(labels) ? 3 : 2;
-            if (labels.Length <= keep) return host;
-            return String.Join(".", labels, labels.Length - keep, keep);
+            int d1 = host.LastIndexOf('.');
+            if (d1 < 0) return 0;
+            int d2 = d1 == 0 ? -1 : host.LastIndexOf('.', d1 - 1);
+            if (d2 < 0) return 0;
+            if (host.Length - d1 - 1 == 2 && IsGenericSecondLevel(host, d2 + 1, d1 - d2 - 1))
+            {
+                int d3 = d2 == 0 ? -1 : host.LastIndexOf('.', d2 - 1);
+                return d3 < 0 ? 0 : d3 + 1;
+            }
+            return d2 + 1;
+        }
+
+        private static bool IsGenericSecondLevel(string host, int start, int length)
+        {
+            if (length < 2 || length > 3) return false;
+            foreach (var k in GenericSecondLevels)
+                if (k.Length == length && String.Compare(host, start, k, 0, length, StringComparison.Ordinal) == 0) return true;
+            return false;
         }
 
         // co.uk, com.pl, org.au ...: a 2-letter country code under a generic second-level label.

@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using Isko.Protection;
 
 internal static class Program
@@ -78,6 +79,36 @@ internal static class Program
         RequestCompletion.Apply(native, lab, site);
         Check(native.Calls == 1 && !native.Block, "protection off reaches native continuation");
         FilterRuleTests();
+        // The remembered page host must follow the page, not stick to the first one.
+        var memo = new ProtectionPolicy(); memo.SetFilters(FilterSet.Parse("||ads.example.net^$third-party")); memo.SetHostException("a.example.org", true);
+        const string adUrl = "https://ads.example.net/x.js";
+        Check(memo.EvaluateRequest("https://a.example.org/", adUrl, true).Allowed, "exception page allows");
+        Check(!memo.EvaluateRequest("https://b.example.org/", adUrl, true).Allowed, "next page is protected again");
+        Check(memo.EvaluateRequest("https://a.example.org/live", adUrl, true).Allowed, "back on the exception page");
+        Check(!memo.EvaluateRequest(null, adUrl, true).Allowed && !memo.EvaluateRequest("", adUrl, true).Allowed, "unknown page is not exempt");
+        Check(!memo.EvaluateRequest("https://b.example.org/", adUrl, true).Allowed, "empty page URL did not poison the memo");
+        // Differential check of the allocation-free same-site comparison against the plain label-array rule.
+        var hosts = new[] { "example.com", "www.example.com", "a.b.example.com", "example.co.uk", "shop.example.co.uk", "other.co.uk", "example.com.pl",
+            "x.example.com.pl", "co.uk", "localhost", "ads.example.net", "example.net", "a.example.org", "203.0.113.5", "198.51.100.7", "xn--e1afmkfd.xn--p1ai", "a.xn--e1afmkfd.xn--p1ai" };
+        Func<string, string> key = h =>
+        {
+            var l = h.Split('.'); var generic = new[] { "co", "com", "org", "net", "gov", "edu", "ac", "or", "ne", "go" };
+            int keep = l.Length >= 3 && l[l.Length - 1].Length == 2 && Array.IndexOf(generic, l[l.Length - 2]) >= 0 ? 3 : 2;
+            return l.Length <= keep ? h : string.Join(".", l, l.Length - keep, keep);
+        };
+        Func<string, bool> isIp = h => h.IndexOf(':') >= 0 || h.All(c => (c >= '0' && c <= '9') || c == '.');
+        var diff = FilterSet.Parse("||ads.example.net^\n||example.net^\n||example.org^\n||example.com^\n||example.co.uk^\n||other.co.uk^\n||example.com.pl^");
+        int pairs = 0;
+        foreach (var pageHost in hosts) foreach (var requestHost in hosts)
+        {
+            bool same = pageHost == requestHost || (!isIp(pageHost) && !isIp(requestHost) && key(pageHost) == key(requestHost));
+            var listed = !isIp(requestHost) && new[] { "ads.example.net", "example.net", "a.example.org", "example.com", "www.example.com", "a.b.example.com", "example.co.uk", "shop.example.co.uk", "other.co.uk", "example.com.pl", "x.example.com.pl" }.Contains(requestHost);
+            bool expectBlocked = listed && !same;
+            bool actual = diff.Match("https://" + pageHost + "/", "https://" + requestHost + "/x").Blocked;
+            Check(actual == expectBlocked, "same-site differential " + pageHost + " -> " + requestHost);
+            pairs++;
+        }
+        Check(pairs == hosts.Length * hosts.Length, "differential covered every pair");
         Check(DownloadPolicy.Blocks("application/zip", false) && DownloadPolicy.Blocks("Application/ZIP; charset=binary", false), "archive MIME refused");
         Check(DownloadPolicy.Blocks("application/x-msdownload", false) && DownloadPolicy.Blocks("application/vnd.android.package-archive", false), "executable MIME refused");
         Check(DownloadPolicy.Blocks("text/html", true) && DownloadPolicy.Blocks(null, true), "engine-decided download refused whatever the type");

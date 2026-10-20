@@ -13,6 +13,8 @@
 
 ### Changed
 
+- Per-request policy evaluation parses the page once and each request once and does a hashed in-place host lookup: about 80% less garbage per request in a desktop benchmark (not a TV measurement).
+- The overlay sweep observer examines only added nodes; blocked-popup notices are coalesced.
 - The `Verify` GitHub Actions workflow is now active (portable checks only).
 
 - `--target-framework` option for the packaging helper; the Tizen target framework is a build property. The .NET 8 device target was tried and does not run on the tested TV.

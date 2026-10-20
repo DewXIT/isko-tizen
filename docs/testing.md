@@ -7,6 +7,28 @@ Compilation, portable C# checks, JS DOM doubles, host HTTP checks, device packag
 and real TV execution are different evidence. No TV test or deployment is performed
 for this initial import. Hardware video/input/protection/lifecycle remain unverified.
 
+## Request-path cost and lifecycle review (2026-10-20)
+
+Desktop micro-benchmark of the per-request policy evaluation (400,000 mixed first-party, CDN and listed ad-host
+URLs, starter list), **a proxy for work and garbage per request, not a TV measurement**:
+
+| | time per request | allocated per request |
+| --- | --- | --- |
+| before (page and request parsed several times, substring suffix walk, array-based site key) | about 1.4 microseconds | 1065 bytes |
+| after (page host remembered per page, request parsed once, hashed in-place host lookup, scan-based site key, lazy path) | about 1.0 microseconds | 195 bytes |
+
+Timings on a shared machine vary between runs; the allocation figures are deterministic. Decisions are unchanged:
+the protection tests (now with a differential check of the same-site rule over every pair of a host set, and a check
+that the remembered page follows the page) pass. The remaining allocation is the single `Uri` parse per request.
+
+Lifecycle review (code reading, no device memory trace): view teardown disposes whole subtrees and stops animations
+before replacing them; page views detach every handler and the native request and download callbacks before
+disposal; one-shot timers are rooted until they fire; history, favorites and the site-icon cache are bounded; icon
+files are keyed by name and size only. Two growth risks were fixed: the overlay sweep re-examined every child of
+`body` on each DOM mutation (it now examines only added nodes), and blocked-popup notices could queue without limit
+(one pending notice at a time). Not covered: native memory held by the web engine, which needs the device samples in
+the [checklist](tv-checklist.md).
+
 ## .NET 8 device target (2026-10-20)
 
 `net8.0-tizen9.0` builds with the Samsung workload (framework-dependent package, `Microsoft.NETCore.App` 8.0.0).

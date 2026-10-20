@@ -165,7 +165,14 @@ assert(mseForeign.removed, 'A blob: source created by another site does not prot
 const off = box(); sweepRun([off], false); assert(!off.removed, 'Disabled protection leaves layers alone');
 const inFs = box(); sweepRun([inFs], true, {}); assert(!inFs.removed, 'No sweeping while real fullscreen is active');
 const late = [], lateEl = box(); const run = sweepRun(late);
-late.push(lateEl); run.observer(); assert(lateEl.removed, 'A layer added later is removed by the observer');
+late.push(lateEl); run.observer([{ addedNodes: [lateEl] }]); assert(lateEl.removed, 'A layer added later is removed by the observer');
+{
+  // The observer examines only the nodes it is told were added, not every child of body again.
+  const kept = box(), added = box(), kids = [kept]; const r2 = sweepRun(kids, false);
+  kept.removed = false; r2.ctx.window.__iskoSweepOn = true; kids.push(added);
+  r2.observer([{ addedNodes: [added] }]);
+  assert(added.removed && !kept.removed, 'Existing children are not re-scanned on every mutation');
+}
 assert.strictEqual(run.ctx.window.__iskoSwept, 1, 'Swept layers are counted');
 // Download links: a[download] is never followed, programmatically or by click.
 {

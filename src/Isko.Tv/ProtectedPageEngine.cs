@@ -22,7 +22,7 @@ internal sealed class ProtectedPageEngine : PageEngine
     private Action<bool> fullscreen = _ => { };
     private Measurements metrics = null!;
     private string site = "";
-    private int generation, popupPending, backSequence;
+    private int generation, popupPending, popupToastPending, backSequence;
     private bool enabled = true, fixture, mediaPending, backUnavailable, requestIntercepting, requestHookFailed;
     private long backDeadline, sampleAt;
     private WebContext.HttpRequestInterceptedCallback? requestCallback;
@@ -66,7 +66,7 @@ internal sealed class ProtectedPageEngine : PageEngine
     public override void Started(string url)
     {
         Interlocked.Increment(ref generation);
-        Interlocked.Exchange(ref popupPending, 0);
+        Interlocked.Exchange(ref popupPending, 0); Interlocked.Exchange(ref popupToastPending, 0);
         backDeadline = 0;
         backSequence++;
         mediaPending = false; backUnavailable = false;
@@ -156,8 +156,13 @@ internal sealed class ProtectedPageEngine : PageEngine
         if (!ignored) { metrics.Event("engine-popup-cancel-failed"); return; }
         if (!allowed) {
             Interlocked.Increment(ref metrics.PopupsBlocked);
+            // One pending notice at a time: a page that opens windows in a loop must not grow the queue.
+            if (Interlocked.Exchange(ref popupToastPending, 1) != 0) return;
             var blockedTicket = Volatile.Read(ref generation);
-            completions.Enqueue(() => { if (view != null && blockedTicket == generation) status("Zablokowano nowe okno. Wyjątek dla strony: menu → Ochrona"); });
+            completions.Enqueue(() => {
+                Interlocked.Exchange(ref popupToastPending, 0);
+                if (view != null && blockedTicket == generation) status("Zablokowano nowe okno. Wyjątek dla strony: menu → Ochrona");
+            });
             return;
         }
         if (!UrlSafety.TryNormalizeAddress(target, out var url) || Interlocked.Exchange(ref popupPending, 1) != 0) return;
