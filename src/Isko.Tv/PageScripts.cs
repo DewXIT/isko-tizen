@@ -23,11 +23,14 @@ internal static class PageScripts
         const trap=(n,v)=>{try{
           if(!n.tagName||/^(IFRAME|FRAME|VIDEO|AUDIO|EMBED|OBJECT|CANVAS|HTML|BODY)$/.test(n.tagName))return false;
           const s=v.getComputedStyle(n);if(s.position!=='fixed'&&s.position!=='absolute')return false;
-          const r=n.getBoundingClientRect();if(r.width<v.innerWidth*.8||r.height<v.innerHeight*.8)return false;
+          const r=n.getBoundingClientRect(),big=r.width>=v.innerWidth*.8&&r.height>=v.innerHeight*.8;
+          // A smaller layer counts only when it is both invisible and at an extreme z-index (a ghost over part of the page).
+          const ghost=Number(s.opacity)<.05&&Number(s.zIndex)>=2147483000&&r.width>=100&&r.height>=100;
+          if(!big&&!ghost)return false;
           if((n.textContent||'').trim()||n.getElementsByTagName('*').length>3||
             n.querySelector('img,video,canvas,svg,iframe,input,button,audio'))return false;
           const bg=s.backgroundColor,clear=!bg||bg==='transparent'||/rgba\(.*,\s*0\)$/.test(bg);
-          return(clear&&s.backgroundImage==='none')||Number(s.opacity)<.05||Number(s.zIndex)>=2147483000
+          return ghost||(clear&&s.backgroundImage==='none')||Number(s.opacity)<.05||Number(s.zIndex)>=2147483000
         }catch(_){return false}};
         const pick=(dd,v,px,py)=>{const l=dd.elementsFromPoint?dd.elementsFromPoint(px,py):[dd.elementFromPoint(px,py)];
           for(const n of l)if(n&&!trap(n,v))return n;return l[0]||null};

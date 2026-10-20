@@ -100,6 +100,14 @@ for (const variant of [
   assert.strictEqual(other.events.length, 5, 'A real modal, opaque layer or small element still receives the click');
   assert.strictEqual(below.events.length, 0);
 }
+const ghostLayer = layer('DIV', { style: { position: 'fixed', zIndex: '2147483647', opacity: '0' }, getBoundingClientRect: () => ({ width: 339, height: 672 }) });
+const underGhost = layer('DIV', { getBoundingClientRect: () => ({ width: 100, height: 100 }) });
+clickWith([ghostLayer, underGhost]);
+assert.strictEqual(ghostLayer.events.length, 0, 'An invisible extreme-z layer over part of the page is skipped');
+assert.strictEqual(underGhost.events.length, 5);
+const faintSmall = layer('DIV', { style: { position: 'fixed', zIndex: '50', opacity: '0' }, getBoundingClientRect: () => ({ width: 339, height: 672 }) });
+clickWith([faintSmall, underGhost]);
+assert.strictEqual(faintSmall.events.length, 5, 'A partial invisible layer at an ordinary z-index is left alone');
 const loneTrap = layer('A', { style: { position: 'fixed', zIndex: '2147483647' } });
 clickWith([loneTrap]);
 assert.strictEqual(loneTrap.events.length, 5, 'When nothing is under a trap, the original topmost element is used');
