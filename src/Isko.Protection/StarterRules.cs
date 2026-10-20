@@ -46,6 +46,12 @@ namespace Isko.Protection
             "||acscdn.com^$third-party",
             "||usrpubtrk.com^$third-party",
             "||vidwestxyz.com^$third-party",
+            "||cautiousfloor.com^$third-party",
+            "||musikazblai.org^$third-party",
+            "||mamshirt.com^$third-party",
+            "||therocketlanguages.com^$third-party",
+            "||insecure-brief.com^$third-party",
+            "||knowacaliforniafarmer.com^$third-party",
         });
     }
 }
