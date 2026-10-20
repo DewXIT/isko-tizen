@@ -3,8 +3,9 @@
 This repository starts with one independent source commit. It includes no prior
 Git history, private installation configuration or recorded TV diagnostics.
 
-Target: Tizen 9 / API12. `src/Isko.Tv` is the default; Lab shares its sources under
-a separate ID. Legacy targets API11/Tizen 8 and is not the selected backend.
+Target: Tizen 9 / API12. `src/Isko.Tv` is the only application project. The former
+Lab (separate app ID) and API11/Tizen 8 Legacy projects were removed; protection is
+tested in the main app.
 
 Product direction: [vision.md](vision.md). Primary audience: Poland, with Polish as
 the default user-facing language. The core flow is open page → choose live/video

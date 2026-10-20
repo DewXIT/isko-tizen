@@ -11,10 +11,8 @@ for this initial import. Hardware video/input/protection/lifecycle remain unveri
 
 Executed on the standalone source tree:
 
-- Default NUI and Lab reference builds: PASS, with existing .NET 6 support warnings
+- Default NUI reference build: PASS, with existing .NET 6 support warnings
   and the SDK XAML assembly notice.
-- Legacy API11 reference build: PASS, with existing deprecated-API warnings,
-  .NET 6 support warnings and the SDK XAML assembly notice.
 - Core ownership/cursor/input model and compiled API12 audit: PASS; 174 Tizen
   references, 34 reviewed hidden members.
 - Protection policy: PASS, 41 assertions.

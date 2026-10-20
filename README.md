@@ -95,7 +95,6 @@ Some minimal remotes do not send Menu/color keys. See [known limits](docs/browse
 
 ```sh
 dotnet build src/Isko.Tv/Isko.Tv.csproj -c Release
-dotnet build src/Isko.Tv.Experimental/Isko.Tv.Experimental.csproj -c Release
 dotnet run --project tests/Isko.Core.Tests -c Release -- src/Isko.Tv/bin/Release/net6.0/Isko.Tv.dll
 dotnet run --project tests/Isko.Protection.Tests -c Release
 node tests/page-scripts.test.js
@@ -114,8 +113,6 @@ versions remain separate requirements. Existing .NET 6 support warnings are visi
 - `src/Isko.Tv`: default browser shell and reviewed API12 engine hooks.
 - `src/Isko.Core`: view ownership, shell state, cursor and input buffer.
 - `src/Isko.Protection`: minimal policy and request-completion adapters.
-- `src/Isko.Tv.Experimental`: the same browser sources under a separate Lab app ID.
-- `src/Isko.Tv.Legacy`: a separate API11/Tizen 8 prototype, not the default package.
 - `src/Isko.Diagnostics`: generic read-only platform-probe source, with no recorded data.
 - `tools/fixture-server`: generic controlled pages and original media generation.
 

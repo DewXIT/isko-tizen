@@ -19,10 +19,6 @@ jobs:
             8.0.x
       - name: Compile default NUI backend against API12 (not a TPK or TV execution)
         run: dotnet build src/Isko.Tv/Isko.Tv.csproj -c Release
-      - name: Keep the separate API11 legacy spike compiling
-        run: dotnet build src/Isko.Tv.Legacy/Isko.Tv.Legacy.csproj -c Release
-      - name: Compile opt-in experimental API12 hooks (not a runtime validation)
-        run: dotnet build src/Isko.Tv.Experimental/Isko.Tv.Experimental.csproj -c Release
       - name: Run platform-independent policy checks
         run: dotnet run --project tests/Isko.Protection.Tests/Isko.Protection.Tests.csproj -c Release
       - name: View ownership checks and API12 assembly audit
