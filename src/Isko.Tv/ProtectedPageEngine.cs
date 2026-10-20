@@ -26,6 +26,7 @@ internal sealed class ProtectedPageEngine : PageEngine
     private bool enabled = true, fixture, mediaPending, backUnavailable, requestIntercepting, requestHookFailed;
     private long backDeadline, sampleAt;
     private WebContext.HttpRequestInterceptedCallback? requestCallback;
+    private WebContext.DownloadStartedCallback? downloadCallback;
     private static readonly FilterSet StarterFilters = FilterSet.Parse(StarterRules.Text);
     private const long GestureWindowMs = 2000;
     private long lastInputAt = -GestureWindowMs - 1;
@@ -43,11 +44,15 @@ internal sealed class ProtectedPageEngine : PageEngine
         if (timer == null) { timer = new Tizen.NUI.Timer(100); timer.Tick += Tick; timer.Start(); }
         page.NewWindowPolicyDecided += Popup;
         page.NavigationPolicyDecided += Navigation;
+        page.ResponsePolicyDecided += Response;
         page.FullscreenEntered += Entered;
         page.FullscreenExited += Exited;
         context = page.Context;
         // Context callback may run on a worker thread. Its body touches no NUI view.
         requestCallback = Intercept;
+        // A download that starts anyway means the response refusal did not hold; only a counter is kept (no URL).
+        downloadCallback = _ => Interlocked.Increment(ref metrics.DownloadsStarted);
+        try { context.RegisterDownloadStartedCallback(downloadCallback); } catch { metrics.Event("download-callback-unavailable"); }
         requestIntercepting = false; requestHookFailed = false;
         Rebuild();
         if (requestHookFailed) throw new InvalidOperationException("Request interceptor unavailable.");
@@ -74,6 +79,7 @@ internal sealed class ProtectedPageEngine : PageEngine
         Execute(PageScripts.ObserveMedia);
         Execute(Volatile.Read(ref policy).GetCosmeticScript(url));
         Execute(PageScripts.SweepOverlays(enabled && !HasException()));
+        Execute(PageScripts.BlockDownloadLinks);
         sampleAt = clock.ElapsedMilliseconds + 30000;
     }
     private bool HasException() => Uri.TryCreate(Volatile.Read(ref site), UriKind.Absolute, out var uri) && exceptions.Contains(uri.IdnHost);
@@ -168,6 +174,18 @@ internal sealed class ProtectedPageEngine : PageEngine
             else metrics.Event("lab-navigation-cancel-failed");
         }
     }
+    // Downloads are refused unconditionally: an ad page can start one (an installer or archive) from a click.
+    private void Response(object? sender, WebViewPolicyDecidedEventArgs args)
+    {
+        var maker = args.PolicyDecisionMaker;
+        var engineDownload = maker.PolicyDecisionType == WebPolicyDecisionMaker.DecisionType.Download;
+        if (!DownloadPolicy.Blocks(maker.ResponseMime, engineDownload)) { maker.Use(); return; }
+        if (maker.Ignore()) {
+            Interlocked.Increment(ref metrics.DownloadsBlocked);
+            var ticket = Volatile.Read(ref generation);
+            completions.Enqueue(() => { if (view != null && ticket == generation) status("Pobieranie plików jest zablokowane."); });
+        } else metrics.Event("download-cancel-failed");
+    }
     private void Entered(object? sender, EventArgs args) => QueueFullscreen(true);
     private void Exited(object? sender, EventArgs args) => QueueFullscreen(false);
     private void QueueFullscreen(bool value)
@@ -241,13 +259,15 @@ internal sealed class ProtectedPageEngine : PageEngine
         // A failed unregister propagates: SingleViewOwner retains the view for retry.
         if (requestIntercepting) context?.RegisterHttpRequestInterceptedCallback(null!);
         requestIntercepting = false;
+        try { context?.RegisterDownloadStartedCallback(null!); } catch { metrics.Event("download-callback-unregister-failed"); }
         page.NewWindowPolicyDecided -= Popup;
         page.NavigationPolicyDecided -= Navigation;
+        page.ResponsePolicyDecided -= Response;
         page.FullscreenEntered -= Entered;
         page.FullscreenExited -= Exited;
         Interlocked.Increment(ref generation);
         try { page.EvaluateJavaScript(PageScripts.ReleaseMedia); } catch { metrics.Event("lab-media-release-script-failed"); }
-        view = null; context = null; requestCallback = null; backDeadline = 0;
+        view = null; context = null; requestCallback = null; downloadCallback = null; backDeadline = 0;
         while (completions.TryDequeue(out _)) { }
     }
     public override void Dispose()

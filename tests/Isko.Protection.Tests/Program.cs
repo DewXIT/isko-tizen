@@ -78,6 +78,11 @@ internal static class Program
         RequestCompletion.Apply(native, lab, site);
         Check(native.Calls == 1 && !native.Block, "protection off reaches native continuation");
         FilterRuleTests();
+        Check(DownloadPolicy.Blocks("application/zip", false) && DownloadPolicy.Blocks("Application/ZIP; charset=binary", false), "archive MIME refused");
+        Check(DownloadPolicy.Blocks("application/x-msdownload", false) && DownloadPolicy.Blocks("application/vnd.android.package-archive", false), "executable MIME refused");
+        Check(DownloadPolicy.Blocks("text/html", true) && DownloadPolicy.Blocks(null, true), "engine-decided download refused whatever the type");
+        Check(!DownloadPolicy.Blocks("text/html", false) && !DownloadPolicy.Blocks("application/octet-stream", false) && !DownloadPolicy.Blocks(null, false) && !DownloadPolicy.Blocks("application/vnd.apple.mpegurl", false), "documents, streams and bare octet-stream are not refused here");
+        Check(DownloadPolicy.Blocks("application/zip", false), "download refusal does not depend on the protection switch");
         Console.WriteLine("PASS: " + count + " protection assertions (pure policy only, not Tizen integration)");
     }
     static void FilterRuleTests()

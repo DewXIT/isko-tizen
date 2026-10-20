@@ -153,6 +153,13 @@ if (args.Length == 1) {
         "Tizen.NUI.WebViewPolicyDecidedEventArgs", "Tizen.NUI.WebViewPolicyDecidedEventArgs::get_PolicyDecisionMaker()",
         "Tizen.NUI.WebPolicyDecisionMaker", "Tizen.NUI.WebPolicyDecisionMaker::get_Url()",
         "Tizen.NUI.WebPolicyDecisionMaker::Use()", "Tizen.NUI.WebPolicyDecisionMaker::Ignore()",
+        // Engine: refuse downloads. Reviewed against the TizenFX API12 source: no privilege annotation on any of these.
+        "Tizen.NUI.BaseComponents.WebView::add_ResponsePolicyDecided(System.EventHandler<Tizen.NUI.WebViewPolicyDecidedEventArgs>)",
+        "Tizen.NUI.BaseComponents.WebView::remove_ResponsePolicyDecided(System.EventHandler<Tizen.NUI.WebViewPolicyDecidedEventArgs>)",
+        "Tizen.NUI.WebPolicyDecisionMaker+DecisionType", "Tizen.NUI.WebPolicyDecisionMaker::get_PolicyDecisionType()",
+        "Tizen.NUI.WebPolicyDecisionMaker::get_ResponseMime()",
+        "Tizen.NUI.WebContext+DownloadStartedCallback",
+        "Tizen.NUI.WebContext::RegisterDownloadStartedCallback(Tizen.NUI.WebContext+DownloadStartedCallback)",
         // Engine: request filtering.
         "Tizen.NUI.BaseComponents.WebView::get_Context()", "Tizen.NUI.WebContext",
         "Tizen.NUI.WebContext+HttpRequestInterceptedCallback",

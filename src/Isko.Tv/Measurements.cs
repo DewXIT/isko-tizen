@@ -9,7 +9,7 @@ internal sealed class Measurements : IDisposable
     private readonly Stopwatch elapsed = Stopwatch.StartNew();
     private readonly Timer timer;
     public long PopupsBlocked, NavigationsBlocked, LoadErrors;
-    public long RequestBlockAttempts, RequestsBlocked, RequestCompletionErrors;
+    public long RequestBlockAttempts, RequestsBlocked, RequestCompletionErrors, DownloadsBlocked, DownloadsStarted;
     public string RequestBlocking = "unsupported";
     public Measurements() => timer = new Timer(_ => Sample("interval"), null, 30000, 30000);
     public void Event(string name, long? value = null) => Console.WriteLine(JsonSerializer.Serialize(new
@@ -27,7 +27,8 @@ internal sealed class Measurements : IDisposable
             loadErrors = Interlocked.Read(ref LoadErrors), requestBlocking = RequestBlocking,
             requestBlockAttempts = Interlocked.Read(ref RequestBlockAttempts),
             requestsBlocked = Interlocked.Read(ref RequestsBlocked),
-            requestCompletionErrors = Interlocked.Read(ref RequestCompletionErrors)
+            requestCompletionErrors = Interlocked.Read(ref RequestCompletionErrors),
+            downloadsBlocked = Interlocked.Read(ref DownloadsBlocked), downloadsStarted = Interlocked.Read(ref DownloadsStarted)
         }));
     }
     public void Media(string result)

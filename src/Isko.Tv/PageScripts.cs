@@ -78,6 +78,12 @@ internal static class PageScripts
         if(!window.__iskoSweep){window.__iskoSweep=true;new MutationObserver(sweep).observe(document.body,{childList:true})}
         sweep();";
     public static string SweepOverlays(bool on) => "(()=>{window.__iskoSweepOn=" + (on ? "true" : "false") + ";" + SweepBody + "})()";
+    // Page-side supplement to the native refusal: a download link is never followed, however it is triggered.
+    public const string BlockDownloadLinks = @"(()=>{if(window.__iskoDl)return;window.__iskoDl=true;
+        document.addEventListener('click',e=>{const a=e.target&&e.target.closest&&e.target.closest('a[download]');
+          if(a){e.preventDefault();e.stopImmediatePropagation()}},true);
+        const c=HTMLAnchorElement.prototype.click;
+        HTMLAnchorElement.prototype.click=function(){if(this.hasAttribute('download'))return;return c.apply(this,arguments)}})()";
     private static string Number(float value) => value.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture);
     public static string ClickAt(float fx, float fy) => Click.Replace("FX", Number(fx)).Replace("FY", Number(fy));
     public static string ScrollAt(float fx, float fy, float dx, float dy) =>

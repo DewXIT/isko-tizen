@@ -149,6 +149,22 @@ const inFs = box(); sweepRun([inFs], true, {}); assert(!inFs.removed, 'No sweepi
 const late = [], lateEl = box(); const run = sweepRun(late);
 late.push(lateEl); run.observer(); assert(lateEl.removed, 'A layer added later is removed by the observer');
 assert.strictEqual(run.ctx.window.__iskoSwept, 1, 'Swept layers are counted');
+// Download links: a[download] is never followed, programmatically or by click.
+{
+  const listeners = [], proto = { clicked: 0, click() { this.clicked++; } };
+  class Anchor { constructor(dl) { this.dl = dl; } hasAttribute(n) { return n === 'download' && this.dl; } }
+  Anchor.prototype.click = proto.click;
+  const ctx = { window: {}, HTMLAnchorElement: Anchor, document: { addEventListener: (n, fn) => listeners.push([n, fn]) } };
+  vm.runInNewContext(script('BlockDownloadLinks'), ctx); vm.runInNewContext(script('BlockDownloadLinks'), ctx);
+  assert.strictEqual(listeners.length, 1, 'Installed once');
+  const dl = new Anchor(true), plain = new Anchor(false); dl.clicked = 0; plain.clicked = 0;
+  Anchor.prototype.click.call(dl); Anchor.prototype.click.call(plain);
+  assert.strictEqual(dl.clicked, 0, 'a[download].click() is swallowed'); assert.strictEqual(plain.clicked, 1, 'ordinary link click() works');
+  let prevented = 0, stopped = 0;
+  const ev = (a) => ({ target: { closest: s => (s === 'a[download]' && a ? a : null) }, preventDefault() { prevented++; }, stopImmediatePropagation() { stopped++; } });
+  listeners[0][1](ev(true)); assert.strictEqual(prevented, 1); assert.strictEqual(stopped, 1);
+  listeners[0][1](ev(false)); assert.strictEqual(prevented, 1, 'Ordinary clicks untouched');
+}
 const wheel = [];
 const childWin = { innerWidth: 320, innerHeight: 180, getComputedStyle: () => ({ overflowY: 'visible', overflowX: 'visible' }) };
 const childDoc = { defaultView: childWin, elementFromPoint: () => ({ tagName: 'DIV' }),
@@ -157,4 +173,4 @@ doc.elementFromPoint = () => ({ tagName: 'IFRAME', contentDocument: childDoc,
   getBoundingClientRect: () => ({ left: 0, top: 0 }) });
 vm.runInNewContext(script('Scroll').replace(/FX|FY/g, '0.1').replace(/DX/g, '0').replace(/DY/g, '0.1'), inputContext);
 assert.deepStrictEqual(wheel, [[0, 18]], 'Nested frames scroll by their own viewport');
-console.log('PASS bundled page scripts: passive media observation, active-player metrics, hit coordinates, click-trap skipping, overlay sweep, disabled controls, frame boundary and frame scrolling (DOM doubles only)');
+console.log('PASS bundled page scripts: passive media observation, active-player metrics, hit coordinates, click-trap skipping, overlay sweep, download-link guard, disabled controls, frame boundary and frame scrolling (DOM doubles only)');

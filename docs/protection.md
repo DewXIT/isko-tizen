@@ -51,6 +51,11 @@ than showing an ad.**
   fullscreen and when protection is off or the site has an exception. The count of removed layers is reported as
   `sweptLayers`. Checked with DOM doubles; the same script was also run once against a live ad-heavy page in a desktop
   browser, where it removed the interstitial and re-created layers. Not tested on a TV.
+- Downloads are always refused, independent of the protection switch and site exceptions: the engine's response
+  policy is ignored when it decides to download or the response is an archive/executable MIME (zip, installers,
+  disk images, apk...). A bare `application/octet-stream` is not refused on its own. A page-side guard also
+  swallows `a[download]` clicks. A download-started callback only counts downloads that got through
+  (`downloadsStarted`), so a non-zero value means the refusal did not hold. Not yet seen working on a TV.
 - Every blocked request increments a per-rule counter. Telemetry reports rule ids (list line numbers) and
   counts only, which locates a rule that broke a page without logging any URL.
 
