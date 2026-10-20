@@ -8,6 +8,13 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <TizenCreateTpkOnBuild Condition="'$(BuildForTizen)' == 'true'">true</TizenCreateTpkOnBuild>
   </PropertyGroup>
+  <!-- Developer-only: open this address at launch (no remote typing). Empty in every normal package. -->
+  <PropertyGroup>
+    <IskoStartUrl Condition="'$(IskoStartUrl)' == ''"></IskoStartUrl>
+  </PropertyGroup>
+  <ItemGroup>
+    <AssemblyMetadata Include="IskoStartUrl" Value="$(IskoStartUrl)" />
+  </ItemGroup>
   <PropertyGroup Condition="'$(IskoRuntimeDiagnostics)' == 'true'">
     <DefineConstants>$(DefineConstants);ISKO_RUNTIME_DIAGNOSTICS</DefineConstants>
   </PropertyGroup>

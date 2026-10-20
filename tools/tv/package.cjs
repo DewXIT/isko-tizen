@@ -4,11 +4,12 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const root = path.resolve(__dirname, '../..');
 const fields = ['dotnet', 'tz', 'sdb', 'sdkPath', 'signingProfile', 'deviceAddress', 'outputDirectory'];
-function plan(config, install = false) {
+function plan(config, install = false, startUrl = '') {
   if (!config || typeof config !== 'object' || Array.isArray(config)) throw Error('Configuration must be a JSON object.');
   for (const key of Object.keys(config)) {
     if (!fields.includes(key) || typeof config[key] !== 'string' || /[\r\n\0]/.test(config[key])) throw Error('Invalid configuration field.');
   }
+  if (startUrl && !/^https?:\/\/[A-Za-z0-9.:\/_?=&-]{1,200}$/.test(startUrl)) throw Error('--start-url must be a plain http(s) address.');
   if (!config.signingProfile || config.signingProfile === 'YOUR_SAMSUNG_TV_PROFILE') throw Error('Configure your own Samsung TV signing profile.');
   if (install && (!config.deviceAddress || !/^[a-zA-Z0-9][a-zA-Z0-9.-]*(?::[0-9]{1,5})?$/.test(config.deviceAddress))) throw Error('Installation needs your TV hostname/address (optional sdb port).');
   const manifest = fs.readFileSync(path.join(root, 'src/Isko.Tv/tizen-manifest.xml'), 'utf8');
@@ -23,7 +24,7 @@ function plan(config, install = false) {
   const signed = path.join(output, `${pkg}-${version}.tpk`);
   const jobs = [
     { executable: config.dotnet || 'dotnet', args: ['build', 'src/Isko.Tv/Isko.Tv.csproj', '-c', 'Release', '-p:BuildForTizen=true', '-p:IskoRuntimeDiagnostics=false',
-      '-p:DebugType=None', '-p:DebugSymbols=false', '-p:ContinuousIntegrationBuild=true', `-p:PathMap=${root}=/_/`, `-p:BaseOutputPath=${buildOutput}`] },
+      '-p:DebugType=None', '-p:DebugSymbols=false', '-p:ContinuousIntegrationBuild=true', `-p:PathMap=${root}=/_/`, `-p:BaseOutputPath=${buildOutput}`, ...(startUrl ? [`-p:IskoStartUrl=${startUrl}`] : [])] },
     { executable: config.tz || 'tz', args: ['pack', '--type', 'tpk', '--sign-profile', config.signingProfile, '--base-pkg', input, '--out-path', signed] }
   ];
   if (install) {
@@ -34,29 +35,35 @@ function plan(config, install = false) {
   }
   return { jobs, output, signed };
 }
+// A developer start address is the one intended exception to the LAN-address rule; every other rule still applies.
+function audit(file, startUrl) {
+  return require('../check-public-data.cjs').scanArchive(file).filter(f => !(startUrl && f.rule === 'private-lan-address'));
+}
 function main(args) {
-  const allowed = new Set(['--config', '--install', '--dry-run']);
-  let configPath = '.local/isko-tv.json', install = false, dry = false;
+  const allowed = new Set(['--config', '--install', '--dry-run', '--start-url']);
+  let configPath = '.local/isko-tv.json', install = false, dry = false, startUrl = '';
   for (let i = 0; i < args.length; i++) {
-    if (!allowed.has(args[i])) throw Error('Usage: node tools/tv/package.cjs [--config FILE] [--dry-run] [--install]');
+    if (!allowed.has(args[i])) throw Error('Usage: node tools/tv/package.cjs [--config FILE] [--dry-run] [--install] [--start-url http(s)://...]');
     if (args[i] === '--config') { configPath = args[++i]; if (!configPath) throw Error('Missing configuration path.'); }
+    else if (args[i] === '--start-url') { startUrl = args[++i] || ''; if (!startUrl) throw Error('Missing start address.'); }
     else if (args[i] === '--install') install = true; else dry = true;
   }
   const config = JSON.parse(fs.readFileSync(path.resolve(root, configPath), 'utf8'));
-  const result = plan(config, install);
+  const result = plan(config, install, startUrl);
   if (dry) { console.log(`Validated ${result.jobs.length} steps: build, sign${install ? ', connect, install, launch' : ''}. Local paths, profile and TV address are hidden. No commands executed.`); return; }
   fs.mkdirSync(result.output, { recursive: true });
   const env = { ...process.env };
   if (config.sdkPath) env.TIZEN_SDK_PATH = path.resolve(config.sdkPath);
   for (const job of result.jobs) {
     if (install && job === result.jobs[2]) {
-      if (require('../check-public-data.cjs').scanArchive(result.signed).length) throw Error('Package publication audit failed; installation stopped.');
+      if (audit(result.signed, startUrl).length) throw Error('Package publication audit failed; installation stopped.');
     }
     // Argument arrays, no shell expansion; no password or private key is read by this script.
     const step = spawnSync(job.executable, job.args, { cwd: root, env, stdio: 'inherit', shell: false });
     if (step.error || step.status !== 0) throw Error('Packaging/install step failed. See local tool output.');
   }
-  if (require('../check-public-data.cjs').scanArchive(result.signed).length) throw Error('Package publication audit failed.');
+  if (audit(result.signed, startUrl).length) throw Error('Package publication audit failed.');
+  if (startUrl) console.log('Developer package: it embeds the start address. Keep it private; it is not publishable.');
   console.log('Signed package created in the configured artifacts directory.');
 }
 if (require.main === module) { try { main(process.argv.slice(2)); } catch (e) { console.error(e.code === 'ENOENT' ? 'Create your ignored local configuration and configure the SDK tools first.' : e.message); process.exitCode = 1; } }

@@ -31,3 +31,13 @@ first click reaches the content list, a stream opens with the first press, no ne
 audio and picture start together. Compare with protection off and with the system browser: time to first
 picture, remote latency, memory samples after 10/30/60 minutes. Note anything that stopped working because of
 a rule (`rule-hit-<id>` events identify the rule by its line in the starter list).
+
+## Unattended run (no remote)
+
+`node tools/tv/package.cjs --install --start-url "http://HOST:8765/?report=1&run=auto-01"` builds a **private
+developer package** that opens that address at launch (the address is embedded, so it fails the publication audit
+only for the LAN-address rule and must not be shared). With the fixture server on a trusted LAN, the fixture page
+reports its own events to `/api/events?run=...`. `tools/tv/device-harness.patch` (apply with `git apply`, never
+commit the result) adds a scripted sequence that drives rows 2 to 9 through the app's own click path (script clicks,
+not remote key presses), and reports the app counters to the server. Liveness is checked by re-running
+`tz run --package-id ... --serial ...`: the same pid means the process did not restart.

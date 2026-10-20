@@ -93,21 +93,20 @@ internal sealed class ProtectedPageEngine : PageEngine
         Volatile.Write(ref policy, next);
         UpdateRequestInterception();
     }
+    // The native interceptor is registered once per page and removed only when the page closes. Unregistering it
+    // while the page was live (protection off, site exception) left the TV page's requests stalled; a disabled or
+    // exempt policy simply lets every request through (Ignore) instead.
     private void UpdateRequestInterception()
     {
         if (context == null) return;
-        var needed = Volatile.Read(ref policy).NeedsRequestInterception(Volatile.Read(ref site));
-        if (needed == requestIntercepting) {
-            requestHookFailed = false;
-            metrics.RequestBlocking = needed ? "experimental-hook-unverified" : "disabled-or-site-exempt";
-            return;
+        if (!requestIntercepting) {
+            try {
+                context.RegisterHttpRequestInterceptedCallback(requestCallback!);
+                requestIntercepting = true; requestHookFailed = false;
+            } catch { requestHookFailed = true; metrics.RequestBlocking = "hook-toggle-failed"; metrics.Event("request-hook-toggle-failed"); return; }
         }
-        try {
-            context.RegisterHttpRequestInterceptedCallback(needed ? requestCallback! : null!);
-            requestIntercepting = needed;
-            requestHookFailed = false;
-            metrics.RequestBlocking = needed ? "experimental-hook-unverified" : "disabled-or-site-exempt";
-        } catch { requestHookFailed = true; metrics.RequestBlocking = "hook-toggle-failed"; metrics.Event("request-hook-toggle-failed"); }
+        metrics.RequestBlocking = Volatile.Read(ref policy).NeedsRequestInterception(Volatile.Read(ref site))
+            ? "experimental-hook-unverified" : "disabled-or-site-exempt";
     }
     public override void UserInput() => Volatile.Write(ref lastInputAt, clock.ElapsedMilliseconds);
     public override void ToggleProtection() { enabled = !enabled; Changed(); }

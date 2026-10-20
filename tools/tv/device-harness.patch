@@ -1,0 +1,73 @@
+--- a/src/Isko.Tv/Program.cs
++++ b/src/Isko.Tv/Program.cs
+@@ -825,10 +825,60 @@
+         if (page.Current != null) {
+             page.Current.Position = new Position(0, 0);
+             page.Current.Size = new Size(size.Width, size.Height);
++        }
++    }
++    // TEMP-HARNESS: unattended on-device protection run (not committed). Results go to the fixture server.
++    private readonly List<(long At, Action Run)> harness = new(); private bool harnessPlanned;
++    private void HEval(string js) { try { page.Current?.EvaluateJavaScript(js); } catch { } }
++    private void HClick(string id)
++    {
++        engine.UserInput();
++        HEval("(()=>{const e=document.getElementById('" + id + "');if(!e)return;e.scrollIntoView({block:'center'});const r=e.getBoundingClientRect();window.__fx=(r.left+r.width/2)/innerWidth;window.__fy=(r.top+r.height/2)/innerHeight})();"
++            + PageScripts.ClickAtExpr("(window.__fx)", "(window.__fy)"));
++    }
++    private void HarnessTick()
++    {
++        var now = clock.ElapsedMilliseconds;
++        if (!harnessPlanned && pageLoaded && page.Current != null && currentUrl.Contains("report=1")) {
++            harnessPlanned = true;
++            void At(int s, Action a) { harness.Add((now + s * 1000L, a)); harness.Sort((x, y) => x.At.CompareTo(y.At)); }
++            string J(string id) => "document.getElementById('" + id + "').click()";
++            if (currentUrl.Contains("scenario=b")) {
++                At(1, () => engine.ToggleFixture());
++                At(3, () => HClick("probe"));
++                At(5, () => engine.ToggleException());
++                At(7, () => HClick("probe"));
++                At(9, () => HEval(J("arm-interstitial")));
++                At(11, () => HEval(J("state")));
++                At(12, () => HEval("new Image().src='/api/event?run=auto-02&name=app-counters&d='+encodeURIComponent(JSON.stringify({req:" + Interlocked.Read(ref metrics.RequestsBlocked) + ",reqAttempts:" + Interlocked.Read(ref metrics.RequestBlockAttempts) + ",swept:(window.__iskoSwept||0)}))"));
++                return;
++            }
++            At(1, () => engine.ToggleProtection());
++            At(2, () => HClick("probe"));
++            At(4, () => { engine.ToggleProtection(); engine.ToggleFixture(); });
++            At(5, () => HClick("probe"));
++            At(8, () => HEval("window.__iskoSweepOn=false;" + J("arm-trap")));
++            At(9, () => HClick("trap-play"));
++            At(10, () => HEval("window.__iskoSweepOn=true;"));
++            At(11, () => HEval(J("arm-interstitial")));
++            At(13, () => HEval(J("state")));
++            At(14, () => HClick("dl-attr"));
++            At(15, () => HClick("dl-script"));
++            At(16, () => HEval(J("bait-start")));
++            At(30, () => HClick("dl-plain"));
++            At(34, () => HEval(J("state")));
++            At(36, () => HClick("popup-cross"));
++            At(39, () => HEval(J("state")));
++            At(40, () => HClick("popup-delayed"));
++            At(47, () => HEval(J("state")));
++            At(49, () => HClick("popup"));
++            At(48, () => HEval("new Image().src='/api/event?run=auto-01&name=app-counters&d='+encodeURIComponent(JSON.stringify({popups:" + Interlocked.Read(ref metrics.PopupsBlocked) + ",navs:" + Interlocked.Read(ref metrics.NavigationsBlocked) + ",req:" + Interlocked.Read(ref metrics.RequestsBlocked) + ",reqAttempts:" + Interlocked.Read(ref metrics.RequestBlockAttempts) + ",dlBlocked:" + Interlocked.Read(ref metrics.DownloadsBlocked) + ",dlStarted:" + Interlocked.Read(ref metrics.DownloadsStarted) + ",swept:(window.__iskoSwept||0)}))"));
+         }
++        while (harness.Count > 0 && harness[0].At <= now) { var run = harness[0].Run; harness.RemoveAt(0); run(); }
+     }
+     private bool Tick(object sender, Tizen.NUI.Timer.TickEventArgs args)
+     {
++        HarnessTick(); // TEMP-HARNESS
+         if (startUrl != null) { var first = startUrl; startUrl = null; Navigate(first); }
+         if (toastUntil != 0 && clock.ElapsedMilliseconds >= toastUntil) { toastUntil = 0; Render(); }
+         while (icons.TryTakeReady(out _)) homeStale = true;
+--- a/src/Isko.Tv/PageScripts.cs
++++ b/src/Isko.Tv/PageScripts.cs
+@@ -84,6 +84,7 @@
+           if(a){e.preventDefault();e.stopImmediatePropagation()}},true);
+         const c=HTMLAnchorElement.prototype.click;
+         HTMLAnchorElement.prototype.click=function(){if(this.hasAttribute('download'))return;return c.apply(this,arguments)}})()";
++    public static string ClickAtExpr(string fx, string fy) => Click.Replace("FX", fx).Replace("FY", fy); // TEMP-HARNESS
+     private static string Number(float value) => value.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture);
+     public static string ClickAt(float fx, float fy) => Click.Replace("FX", Number(fx)).Replace("FY", Number(fy));
+     public static string ScrollAt(float fx, float fy, float dx, float dy) =>

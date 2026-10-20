@@ -16,6 +16,8 @@ function createFixtureServer(options = {}) {
   }
   const counters = new Map();
   const blank = () => ({ adRequests: 0, arrivals: 0, downloads: 0 });
+  // Page-side events for unattended device runs: bounded, run-scoped, names and detail strictly sanitised.
+  const events = new Map();
   const servers = [];
   let ports = options.ports || [8765, 8766];
   const send = (res, status, body, type = 'application/json') => {
@@ -27,15 +29,24 @@ function createFixtureServer(options = {}) {
       let url;
       try { url = new URL(req.url, 'http://fixture.invalid'); } catch (_) { return send(res, 400, { error: 'bad request' }); }
       const run = url.searchParams.get('run');
-      const needsRun = ['/ad-probe', '/api/counters', '/api/reset', '/arrived', '/download/sample.zip'].includes(url.pathname);
+      const needsRun = ['/ad-probe', '/api/counters', '/api/reset', '/arrived', '/download/sample.zip', '/api/event', '/api/events'].includes(url.pathname);
       if (needsRun && !validRun(run)) return send(res, 400, { error: 'run must be 1–48 ASCII letters, digits, _ or -' });
       if (url.pathname === '/api/reset') {
         if (req.method !== 'POST') return send(res, 405, { error: 'POST required' });
         if (!counters.has(run) && counters.size >= 500) return send(res, 429, { error: 'restart fixture server to clear run capacity' });
-        counters.set(run, blank());
+        counters.set(run, blank()); events.delete(run);
         return send(res, 200, { run, ...blank() });
       }
       if (url.pathname === '/api/counters') return send(res, 200, { run, ...(counters.get(run) || blank()) });
+      if (url.pathname === '/api/event') {
+        const name = url.searchParams.get('name') || '', detail = (url.searchParams.get('d') || '').slice(0, 200);
+        if (!/^[a-z0-9-]{1,40}$/.test(name) || /[^\x20-\x7e]/.test(detail)) return send(res, 400, { error: 'bad event' });
+        if (!events.has(run) && events.size >= 500) return send(res, 429, { error: 'restart fixture server to clear run capacity' });
+        const list = events.get(run) || []; if (list.length >= 300) return send(res, 429, { error: 'event limit' });
+        list.push({ n: list.length + 1, name, d: detail }); events.set(run, list);
+        res.writeHead(204, { 'Cache-Control': 'no-store' }); return res.end();
+      }
+      if (url.pathname === '/api/events') return send(res, 200, { run, events: events.get(run) || [] });
       if (url.pathname === '/download/sample.zip') {
         // Counts requests that reach the server. A refused download may still be requested; the app's own
         // downloadsBlocked counter, not this one, is the evidence that nothing was saved.

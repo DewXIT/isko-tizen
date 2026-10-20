@@ -83,6 +83,15 @@ internal sealed class Program : NUIApplication
 
     public static void Main(string[] args) { using var app = new Program(); app.Run(args); }
 
+    // Developer builds only (see tools/tv/package.cjs --start-url); empty in normal packages.
+    private string? startUrl = ReadStartUrl();
+    private static string? ReadStartUrl()
+    {
+        var value = typeof(Program).Assembly.GetCustomAttributes(typeof(System.Reflection.AssemblyMetadataAttribute), false)
+            .OfType<System.Reflection.AssemblyMetadataAttribute>().FirstOrDefault(a => a.Key == "IskoStartUrl")?.Value;
+        return !string.IsNullOrEmpty(value) && UrlSafety.TryNormalizeAddress(value, out var url) ? url : null;
+    }
+
     protected override void OnCreate()
     {
         base.OnCreate();
@@ -820,6 +829,7 @@ internal sealed class Program : NUIApplication
     }
     private bool Tick(object sender, Tizen.NUI.Timer.TickEventArgs args)
     {
+        if (startUrl != null) { var first = startUrl; startUrl = null; Navigate(first); }
         if (toastUntil != 0 && clock.ElapsedMilliseconds >= toastUntil) { toastUntil = 0; Render(); }
         while (icons.TryTakeReady(out _)) homeStale = true;
         if (pointerShown && !cursor.Visible(clock.ElapsedMilliseconds)) UpdatePointer();

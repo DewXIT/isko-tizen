@@ -7,6 +7,29 @@ Compilation, portable C# checks, JS DOM doubles, host HTTP checks, device packag
 and real TV execution are different evidence. No TV test or deployment is performed
 for this initial import. Hardware video/input/protection/lifecycle remain unverified.
 
+## First on-device protection run (2026-10-20)
+
+Physical TV, a private signed developer package built from `main` plus the changes listed here, and a
+trusted-LAN fixture server. Evidence is **script-driven clicks through the app's own click path, plus the page's
+own events and the app counters reported to the server**; not remote key presses, and no screen was observed for
+most items.
+
+- Request blocking: PASS. Baseline with protection off reached the server (`adRequests` 1); with protection and
+  the fixture rule on the request did not (`requestsBlocked` 1) while ordinary links still arrived. A site
+  exception let the request through again.
+- Click trap over a button: the first scripted click reached the button (`player-click`, no `trap-click`).
+- Interstitial (shadow DOM, maximum z-index) and trap: removed (`sweptLayers` 2); kept under a site exception.
+- Popups: a cross-site `window.open` after a click and a `window.open` with no recent input were blocked
+  (`popupsBlocked` 2, the page stayed); a same-site `window.open` after a click was allowed into the one view.
+- Downloads: a plain archive link was refused (`downloadsBlocked` 1, `downloadsStarted` 0, page alive);
+  `a[download]` clicks were swallowed by the page guard.
+- Anti-adblock bait slots: 12 of 12 stayed visible.
+- **Defect found and fixed:** unregistering the request interceptor while a page was live (protection off or a
+  site exception) stalled every request of that page for minutes. It is now registered once per page and a
+  disabled policy lets requests through. Repeating the scenarios after the change: all of the above passed.
+- Not shown: remote-key behaviour, the on-screen keyboard, real pages, playback and memory. An earlier crash after
+  typing an address by hand was not reproduced (the next attempt with the same input worked); its cause is unknown.
+
 ## Local verification
 
 Executed on the standalone source tree:

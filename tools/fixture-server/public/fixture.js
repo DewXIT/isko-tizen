@@ -1,7 +1,10 @@
 (function () {
   'use strict';
   var output = document.getElementById('output'), video = document.getElementById('video'), timer, messages = [], waitingAt, errors = 0, buffering = 0;
-  function log(name, data) { messages.push(JSON.stringify({ event: name, ms: Math.round(performance.now()), data: data || {} })); if (messages.length > 60) messages.shift(); output.textContent = messages.join('\n'); }
+  var query = new URLSearchParams(location.search), reporting = query.get('report') === '1';
+  if (query.get('run') && /^[a-zA-Z0-9_-]{1,48}$/.test(query.get('run'))) document.getElementById('run').value = query.get('run');
+  function report(name, data) { if (!reporting || !/^[a-z0-9-]{1,40}$/.test(name)) return; new Image().src = '/api/event?run=' + encodeURIComponent(document.getElementById('run').value) + '&name=' + name + '&d=' + encodeURIComponent(JSON.stringify(data || {}).slice(0, 200)) + '&n=' + Date.now(); }
+  function log(name, data) { report(name, data); messages.push(JSON.stringify({ event: name, ms: Math.round(performance.now()), data: data || {} })); if (messages.length > 60) messages.shift(); output.textContent = messages.join('\n'); }
   function run() { var value = document.getElementById('run').value; if (!/^[a-zA-Z0-9_-]{1,48}$/.test(value)) throw new Error('Invalid run ID'); return value; }
   function crossOrigin() { return window.FIXTURE_CROSS_ORIGIN || location.protocol + '//' + location.hostname + ':' + window.FIXTURE_PORTS[1]; }
   function target() { return '/arrived?run=' + run(); }
@@ -14,6 +17,7 @@
   bind('reset', function () { request('/api/reset?run=' + run(), 'POST'); });
   bind('counts', function () { request('/api/counters?run=' + run()); });
   bind('popup', function () { var child = window.open(target(), '_blank'); log('popup-attempt', { returnedWindow: !!child }); });
+  bind('popup-cross', function () { var child = window.open(crossSite() + target(), '_blank'); log('cross-popup-attempt', { returnedWindow: !!child }); });
   bind('popup-delayed', function () { setTimeout(function () { var child = window.open(target(), '_blank'); log('delayed-popup-attempt', { returnedWindow: !!child }); }, 5000); log('delayed-popup-armed'); });
   bind('redirect', function () { clearTimeout(timer); var url = crossOrigin() + target(); timer = setTimeout(function () { location.href = url; }, 3000); log('redirect-armed'); });
   bind('cancel', function () { clearTimeout(timer); log('redirect-cancelled'); });

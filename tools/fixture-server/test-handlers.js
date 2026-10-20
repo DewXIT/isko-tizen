@@ -42,9 +42,14 @@ const fs = require('fs'), path = require('path'), vm = require('vm');
 new vm.Script(fs.readFileSync(path.join(__dirname, 'public/fixture.js'), 'utf8'));
 const frameScript = /<script>([\s\S]*)<\/script>/.exec(fs.readFileSync(path.join(__dirname, 'public/frame.html'), 'utf8'));
 assert(frameScript, 'frame fixture has a script'); new vm.Script(frameScript[1]);
-for (const id of ['arm-interstitial', 'popup-delayed', 'state', 'dl-attr', 'dl-plain', 'dl-script', 'bait-start', 'arm-trap', 'trap-play'])
+for (const id of ['arm-interstitial', 'popup-cross', 'popup-delayed', 'state', 'dl-attr', 'dl-plain', 'dl-script', 'bait-start', 'arm-trap', 'trap-play'])
   assert(request('/').body.includes('id="' + id + '"'), 'index fixture has #' + id);
 assert(fs.readFileSync(path.join(__dirname, 'public/frame.html'), 'utf8').includes('id="popup-x"'), 'frame fixture has the cross-site popup button');
+assert.strictEqual(request('/api/event?run=test&name=player-click&d=%7B%7D').status, 204);
+assert.strictEqual(request('/api/event?run=test&name=Bad%20Name').status, 400);
+assert.strictEqual(request('/api/event?run=test&name=ok&d=%C3%A9').status, 400, 'non-ASCII detail refused');
+assert.deepStrictEqual(request('/api/events?run=test').json().events.map(e => e.name), ['player-click']);
+request('/api/reset?run=test', 'POST'); assert.strictEqual(request('/api/events?run=test').json().events.length, 0, 'reset clears events');
 assert.strictEqual(request('/../../server.js').status, 404);
 for (let i = 0; i < 499; i++) request('/api/reset?run=r' + i, 'POST');
 assert.strictEqual(request('/api/reset?run=overflow', 'POST').status, 429);
