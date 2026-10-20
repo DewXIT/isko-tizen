@@ -1,4 +1,4 @@
-# Isko Tizen — a browser for Samsung Smart TVs
+# Isko — a browser for Samsung Smart TVs
 
 <img src="src/Isko.Tv/shared/res/isko.png" alt="Isko logo" width="144" />
 
