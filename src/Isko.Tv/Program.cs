@@ -299,14 +299,19 @@ internal sealed class Program : NUIApplication
         Clear(Layer.BarItems);
         // One control height (80) centred in the 120px bar; the address field takes the rest.
         var x = 84f;
-        Round(Layer.BarItems, "bar-back", "back", x, 60, 80, () => { HideOverlay(); engine.Back(); }); x += 96;
+        // Without history there is nowhere to go back to: the same slot closes the page instead of flickering.
+        var canBack = engine.CanGoBack;
+        var left = canBack ? Round(Layer.BarItems, "bar-back", "back", x, 60, 80, () => { HideOverlay(); engine.Back(); })
+            : Round(Layer.BarItems, "bar-close", "close", x, 60, 80, () => ClosePage());
+        x += 96;
         Round(Layer.BarItems, "bar-reload", "reload", x, 60, 80, Reload); x += 96;
-        var fieldWidth = 1836 - x - (16 + 80 + 16 + 80 + 16 + 80);
+        var fieldWidth = 1836 - x - (canBack ? 16 + 80 + 16 + 80 + 16 + 80 : 16 + 80 + 16 + 80);
         var field = Field(Layer.BarItems, "bar-address", DisplaySite(currentUrl, 60), currentUrl.StartsWith("https:") ? "lock" : "search",
             x, 60, fieldWidth, 80, () => BeginEdit(currentUrl), Color.White);
         x += fieldWidth + 16;
         Round(Layer.BarItems, "bar-favorite", session.IsFavorite(currentUrl) ? "star-on" : "star", x, 60, 80, ToggleFavorite); x += 96;
-        var close = Round(Layer.BarItems, "bar-close", "close", x, 60, 80, () => ClosePage()); x += 96;
+        var close = canBack ? Round(Layer.BarItems, "bar-close", "close", x, 60, 80, () => ClosePage()) : left;
+        if (canBack) x += 96;
         Round(Layer.BarItems, "bar-more", "more", x, 60, 80, () => OpenMenu());
         Render();
         FocusManager.Instance.SetCurrentFocusView(focusClose ? close : field);

@@ -208,6 +208,7 @@ internal sealed class ProtectedPageEngine : PageEngine
         try { view?.EvaluateJavaScript(script); }
         catch { metrics.Event("lab-script-unavailable"); }
     }
+    public override bool CanGoBack { get { try { return view?.CanGoBack() ?? false; } catch { return false; } } }
     public override bool Back()
     {
         if (view == null) return false;
