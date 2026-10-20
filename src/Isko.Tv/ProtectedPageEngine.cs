@@ -73,6 +73,7 @@ internal sealed class ProtectedPageEngine : PageEngine
         Volatile.Write(ref site, url); Rebuild();
         Execute(PageScripts.ObserveMedia);
         Execute(Volatile.Read(ref policy).GetCosmeticScript(url));
+        Execute(PageScripts.SweepOverlays(enabled && !HasException()));
         sampleAt = clock.ElapsedMilliseconds + 30000;
     }
     private bool HasException() => Uri.TryCreate(Volatile.Read(ref site), UriKind.Absolute, out var uri) && exceptions.Contains(uri.IdnHost);
@@ -115,6 +116,7 @@ internal sealed class ProtectedPageEngine : PageEngine
     {
         Rebuild();
         Execute(Volatile.Read(ref policy).GetCosmeticScript(Volatile.Read(ref site)));
+        Execute(PageScripts.SweepOverlays(enabled && !HasException()));
         status(Status + ". Zmiana reguł żądań dotyczy kolejnych żądań.");
     }
 

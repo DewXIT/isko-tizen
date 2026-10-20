@@ -113,6 +113,42 @@ clickWith([loneTrap]);
 assert.strictEqual(loneTrap.events.length, 5, 'When nothing is under a trap, the original topmost element is used');
 const broken = layer('DIV', {}); broken.getBoundingClientRect = () => { throw new Error('detached'); };
 clickWith([broken, player]); assert.strictEqual(broken.events.length, 5, 'Inspection failure means ordinary click');
+// Overlay sweep: a viewport-sized max-z layer (also inside a shadow root) is removed; ordinary layers are kept.
+function sweepRun(children, on = true, fullscreen = null) {
+  let observer = null;
+  const ctx = { window: {}, innerWidth: 1920, innerHeight: 1080, location: { hostname: 'watch.example.org', href: 'https://watch.example.org/' },
+    URL, getComputedStyle: el => el.cs, MutationObserver: class { constructor(fn) { observer = fn; } observe() {} },
+    document: { body: { children }, fullscreenElement: fullscreen } };
+  const body = script('SweepBody');
+  vm.runInNewContext('(()=>{window.__iskoSweepOn=' + on + ';' + body + '})()', ctx);
+  return { ctx, observer };
+}
+function box(over = {}) {
+  const el = Object.assign({ nodeType: 1, shadowRoot: null, removed: false, hidden: false,
+    cs: { position: 'fixed', zIndex: '2147483647' }, getBoundingClientRect: () => ({ width: 1920, height: 1080 }),
+    querySelector: () => null, querySelectorAll: () => [],
+    style: { setProperty(name, value, priority) { el.hidden = name === 'display' && value === 'none' && priority === 'important'; } },
+    remove() { el.removed = true; } }, over);
+  return el;
+}
+const modalInShadow = box({ cs: { position: 'static', zIndex: 'auto' }, getBoundingClientRect: () => ({ width: 1920, height: 0 }) });
+modalInShadow.shadowRoot = { children: [box()] };
+const trapDiv = box(), cookieBar = box({ cs: { position: 'fixed', zIndex: '9999' } });
+const formModal = box({ querySelector: () => ({}) });
+const ownVideo = box({ querySelectorAll: () => [{ currentSrc: 'https://cdn.watch.example.org/live.m3u8' }] });
+const foreignVideo = box({ querySelectorAll: () => [{ currentSrc: 'https://ads.example.net/clip.mp4' }] });
+const smallLayer = box({ getBoundingClientRect: () => ({ width: 300, height: 200 }) });
+const normal = box({ cs: { position: 'static', zIndex: 'auto' } });
+sweepRun([modalInShadow, trapDiv, cookieBar, formModal, ownVideo, foreignVideo, smallLayer, normal]);
+assert(modalInShadow.removed && modalInShadow.hidden, 'A max-z modal inside a shadow root is hidden and removed');
+assert(trapDiv.removed, 'A viewport-sized max-z layer is removed');
+assert(foreignVideo.removed, 'A layer with a third-party ad video is removed');
+for (const keep of [cookieBar, formModal, ownVideo, smallLayer, normal]) assert(!keep.removed, 'Ordinary, form, first-party or small layers are kept');
+const off = box(); sweepRun([off], false); assert(!off.removed, 'Disabled protection leaves layers alone');
+const inFs = box(); sweepRun([inFs], true, {}); assert(!inFs.removed, 'No sweeping while real fullscreen is active');
+const late = [], lateEl = box(); const run = sweepRun(late);
+late.push(lateEl); run.observer(); assert(lateEl.removed, 'A layer added later is removed by the observer');
+assert.strictEqual(run.ctx.window.__iskoSwept, 1, 'Swept layers are counted');
 const wheel = [];
 const childWin = { innerWidth: 320, innerHeight: 180, getComputedStyle: () => ({ overflowY: 'visible', overflowX: 'visible' }) };
 const childDoc = { defaultView: childWin, elementFromPoint: () => ({ tagName: 'DIV' }),
@@ -121,4 +157,4 @@ doc.elementFromPoint = () => ({ tagName: 'IFRAME', contentDocument: childDoc,
   getBoundingClientRect: () => ({ left: 0, top: 0 }) });
 vm.runInNewContext(script('Scroll').replace(/FX|FY/g, '0.1').replace(/DX/g, '0').replace(/DY/g, '0.1'), inputContext);
 assert.deepStrictEqual(wheel, [[0, 18]], 'Nested frames scroll by their own viewport');
-console.log('PASS bundled page scripts: passive media observation, active-player metrics, hit coordinates, click-trap skipping, disabled controls, frame boundary and frame scrolling (DOM doubles only)');
+console.log('PASS bundled page scripts: passive media observation, active-player metrics, hit coordinates, click-trap skipping, overlay sweep, disabled controls, frame boundary and frame scrolling (DOM doubles only)');

@@ -59,6 +59,25 @@ internal static class PageScripts
           if(dx&&/(auto|scroll)/.test(s.overflowX)&&n.scrollWidth>n.clientWidth){const t=n.scrollLeft;n.scrollBy(dx,0);if(n.scrollLeft!==t)return}}
         (d.scrollingElement||d.documentElement).scrollBy(dx,dy);
     })()";
+    // Ad interstitials and click traps sit on a body-level layer that covers the viewport at the maximum
+    // z-index, often inside a shadow root. Such a layer is hidden and removed (which also frees its decoder),
+    // unless it holds a form or first-party content. The observer only watches direct children of body.
+    private const string SweepBody = @"
+        const BIG=2147483000,site=location.hostname.split('.').slice(-2).join('.');
+        const mine=u=>{try{return new URL(u,location.href).hostname.endsWith(site)}catch(_){return false}};
+        const big=n=>{const s=getComputedStyle(n);if(s.position!=='fixed'||!(Number(s.zIndex)>=BIG))return false;
+          const r=n.getBoundingClientRect();return r.width>=innerWidth*.8&&r.height>=innerHeight*.8};
+        const clean=n=>!n.querySelector('input,textarea,select')&&
+          ![...n.querySelectorAll('iframe,video,source')].some(f=>mine(f.currentSrc||f.src||''));
+        const layer=n=>{if(n.nodeType!==1)return null;if(big(n)&&clean(n))return n;
+          const kids=n.shadowRoot?[...n.shadowRoot.children]:[];
+          for(const c of kids)if(c.nodeType===1&&big(c)&&clean(c))return n;return null};
+        const sweep=()=>{if(!window.__iskoSweepOn||document.fullscreenElement)return;
+          for(const n of [...document.body.children]){let t=null;try{t=layer(n)}catch(_){}
+            if(t){t.style.setProperty('display','none','important');t.remove();window.__iskoSwept=(window.__iskoSwept||0)+1}}};
+        if(!window.__iskoSweep){window.__iskoSweep=true;new MutationObserver(sweep).observe(document.body,{childList:true})}
+        sweep();";
+    public static string SweepOverlays(bool on) => "(()=>{window.__iskoSweepOn=" + (on ? "true" : "false") + ";" + SweepBody + "})()";
     private static string Number(float value) => value.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture);
     public static string ClickAt(float fx, float fy) => Click.Replace("FX", Number(fx)).Replace("FY", Number(fy));
     public static string ScrollAt(float fx, float fy, float dx, float dy) =>
@@ -81,6 +100,6 @@ internal static class PageScripts
           videoWidth:v?v.videoWidth:null,videoHeight:v?v.videoHeight:null,
           boxWidth:r?r.width:null,boxHeight:r?r.height:null,
           droppedFrames:q?q.droppedVideoFrames:null,totalFrames:q?q.totalVideoFrames:null,
-          jsHeapBytes:performance.memory?performance.memory.usedJSHeapSize:null};
+          jsHeapBytes:performance.memory?performance.memory.usedJSHeapSize:null,sweptLayers:window.__iskoSwept??null};
     })())";
 }

@@ -42,6 +42,10 @@ namespace Isko.Protection
             "||clickadu.com^$third-party",
             "##.adsbygoogle",
             "##[data-ad-slot]",
+            "||adexchangerapid.com^$third-party",
+            "||acscdn.com^$third-party",
+            "||usrpubtrk.com^$third-party",
+            "||vidwestxyz.com^$third-party",
         });
     }
 }

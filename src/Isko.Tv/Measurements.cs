@@ -38,7 +38,7 @@ internal sealed class Measurements : IDisposable
         var root = document.RootElement;
         var values = new Dictionary<string, double?>();
         foreach (var key in new[] { "errors", "waiting", "stalls", "droppedFrames", "totalFrames", "jsHeapBytes",
-            "videoCount", "activeVideos", "readyState", "networkState", "mediaError", "paused", "currentTime",
+            "sweptLayers", "videoCount", "activeVideos", "readyState", "networkState", "mediaError", "paused", "currentTime",
             "bufferAhead", "videoWidth", "videoHeight", "boxWidth", "boxHeight" }) {
             double? n = null;
             if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty(key, out var value) &&

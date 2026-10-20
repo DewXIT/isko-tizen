@@ -45,6 +45,12 @@ than showing an ad.**
   text, images, controls or an opaque background (consent dialogs, real modals) are never skipped, and any
   inspection failure means an ordinary click. Same-origin frames only; the `click-trap` fixture section
   reproduces the pattern. Checked with DOM doubles, not on a TV.
+- Overlay sweep: a body-level layer that covers the viewport at the maximum z-index (also inside a shadow root),
+  typical of ad interstitials and click traps, is hidden and removed, which also releases its decoder. A layer that
+  holds a form, a first-party frame/video, is small, or sits at an ordinary z-index is kept. It is skipped during real
+  fullscreen and when protection is off or the site has an exception. The count of removed layers is reported as
+  `sweptLayers`. Checked with DOM doubles; the same script was also run once against a live ad-heavy page in a desktop
+  browser, where it removed the interstitial and re-created layers. Not tested on a TV.
 - Every blocked request increments a per-rule counter. Telemetry reports rule ids (list line numbers) and
   counts only, which locates a rule that broke a page without logging any URL.
 
