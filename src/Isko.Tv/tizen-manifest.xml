@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns="http://tizen.org/ns/packages" api-version="9.0" package="org.dewxit.isko" version="0.2.0">
+  <profile name="tv" />
+  <ui-application appid="org.dewxit.isko" exec="Isko.Tv.dll" type="dotnet" multiple="false" taskmanage="true" nodisplay="false">
+    <label>Isko</label>
+    <icon>isko.png</icon>
+  </ui-application>
+  <privileges><privilege>http://tizen.org/privilege/internet</privilege></privileges>
+</manifest>

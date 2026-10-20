@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns="http://tizen.org/ns/packages" api-version="8.0" package="org.dewxit.isko.legacy" version="0.1.0">
+  <profile name="tv" />
+  <ui-application appid="org.dewxit.isko.legacy" exec="Isko.Tv.Legacy.dll" type="dotnet" multiple="false" taskmanage="true" nodisplay="false">
+    <label>Isko Legacy Spike</label>
+  </ui-application>
+  <privileges><privilege>http://tizen.org/privilege/internet</privilege></privileges>
+</manifest>

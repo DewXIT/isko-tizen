@@ -1,0 +1,9 @@
+{
+  "dotnet": "dotnet",
+  "tz": "tz",
+  "sdb": "sdb",
+  "sdkPath": "",
+  "signingProfile": "YOUR_SAMSUNG_TV_PROFILE",
+  "deviceAddress": "",
+  "outputDirectory": "artifacts/tv"
+}

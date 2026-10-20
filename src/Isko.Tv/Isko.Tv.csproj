@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!-- Default is a reference-assembly compilation, NOT a TV package. -->
+    <TargetFramework Condition="'$(BuildForTizen)' != 'true'">net6.0</TargetFramework>
+    <TargetFramework Condition="'$(BuildForTizen)' == 'true'">net6.0-tizen9.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TizenCreateTpkOnBuild Condition="'$(BuildForTizen)' == 'true'">true</TizenCreateTpkOnBuild>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(IskoRuntimeDiagnostics)' == 'true'">
+    <DefineConstants>$(DefineConstants);ISKO_RUNTIME_DIAGNOSTICS</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(BuildForTizen)' != 'true'">
+    <PackageReference Include="Tizen.NET.API12" Version="12.0.0.18510" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Isko.Protection/Isko.Protection.csproj" />
+    <ProjectReference Include="../Isko.Core/Isko.Core.csproj" />
+  </ItemGroup>
+</Project>
