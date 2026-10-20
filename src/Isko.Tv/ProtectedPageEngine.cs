@@ -106,7 +106,7 @@ internal sealed class ProtectedPageEngine : PageEngine
             } catch { requestHookFailed = true; metrics.RequestBlocking = "hook-toggle-failed"; metrics.Event("request-hook-toggle-failed"); return; }
         }
         metrics.RequestBlocking = Volatile.Read(ref policy).NeedsRequestInterception(Volatile.Read(ref site))
-            ? "experimental-hook-unverified" : "disabled-or-site-exempt";
+            ? "hook-unverified" : "disabled-or-site-exempt";
     }
     public override void UserInput() => Volatile.Write(ref lastInputAt, clock.ElapsedMilliseconds);
     public override void ToggleProtection() { enabled = !enabled; Changed(); }
@@ -153,8 +153,13 @@ internal sealed class ProtectedPageEngine : PageEngine
         var allowed = Volatile.Read(ref policy).EvaluatePopup(Volatile.Read(ref site), target, recentInput).Allowed;
         // Never create another view. Even allowed targets reuse the one owned view.
         var ignored = maker.Ignore();
-        if (!ignored) { metrics.Event("lab-popup-cancel-failed"); return; }
-        if (!allowed) { Interlocked.Increment(ref metrics.PopupsBlocked); return; }
+        if (!ignored) { metrics.Event("engine-popup-cancel-failed"); return; }
+        if (!allowed) {
+            Interlocked.Increment(ref metrics.PopupsBlocked);
+            var blockedTicket = Volatile.Read(ref generation);
+            completions.Enqueue(() => { if (view != null && blockedTicket == generation) status("Zablokowano nowe okno. Wyjątek dla strony: menu → Ochrona"); });
+            return;
+        }
         if (!UrlSafety.TryNormalizeAddress(target, out var url) || Interlocked.Exchange(ref popupPending, 1) != 0) return;
         var ticket = Volatile.Read(ref generation);
         completions.Enqueue(() => {
@@ -170,7 +175,7 @@ internal sealed class ProtectedPageEngine : PageEngine
         if (decision.Allowed) maker.Use();
         else {
             if (maker.Ignore()) Interlocked.Increment(ref metrics.NavigationsBlocked);
-            else metrics.Event("lab-navigation-cancel-failed");
+            else metrics.Event("engine-navigation-cancel-failed");
         }
     }
     // Downloads are refused unconditionally: an ad page can start one (an installer or archive) from a click.
@@ -201,12 +206,12 @@ internal sealed class ProtectedPageEngine : PageEngine
             current.EvaluateJavaScript(script, result => completions.Enqueue(() => {
                 if (ReferenceEquals(view, current) && ticket == generation) action(result);
             }));
-        } catch { metrics.Event("lab-script-unavailable"); }
+        } catch { metrics.Event("engine-script-unavailable"); }
     }
     private void Execute(string script)
     {
         try { view?.EvaluateJavaScript(script); }
-        catch { metrics.Event("lab-script-unavailable"); }
+        catch { metrics.Event("engine-script-unavailable"); }
     }
     public override bool CanGoBack { get { try { return view?.CanGoBack() ?? false; } catch { return false; } } }
     public override bool Back()
@@ -231,7 +236,7 @@ internal sealed class ProtectedPageEngine : PageEngine
     private bool Tick(object sender, Tizen.NUI.Timer.TickEventArgs args)
     {
         for (var i = 0; i < 32 && completions.TryDequeue(out var completion); i++) {
-            try { completion(); } catch { metrics.Event("lab-ui-operation-failed"); }
+            try { completion(); } catch { metrics.Event("engine-ui-operation-failed"); }
         }
         if (backDeadline != 0 && clock.ElapsedMilliseconds >= backDeadline) {
             backSequence++; backDeadline = 0; backUnavailable = true;
@@ -245,7 +250,7 @@ internal sealed class ProtectedPageEngine : PageEngine
             foreach (var hit in Volatile.Read(ref policy).Filters.TopHits(5)) metrics.Event("rule-hit-" + hit.RuleId, hit.Count);
             Evaluate(PageScripts.ReadMedia, result => {
                 mediaPending = false;
-                try { metrics.Media(result); } catch { metrics.Event("lab-media-sample-invalid"); }
+                try { metrics.Media(result); } catch { metrics.Event("engine-media-sample-invalid"); }
             });
         }
         return true;
@@ -266,7 +271,7 @@ internal sealed class ProtectedPageEngine : PageEngine
         page.FullscreenEntered -= Entered;
         page.FullscreenExited -= Exited;
         Interlocked.Increment(ref generation);
-        try { page.EvaluateJavaScript(PageScripts.ReleaseMedia); } catch { metrics.Event("lab-media-release-script-failed"); }
+        try { page.EvaluateJavaScript(PageScripts.ReleaseMedia); } catch { metrics.Event("engine-media-release-script-failed"); }
         // Drop rendered tile bitmaps before the view goes away; best effort, never blocks closing.
         try { page.ClearAllTilesResources(); } catch { metrics.Event("tiles-clear-failed"); }
         releasedContext = context;

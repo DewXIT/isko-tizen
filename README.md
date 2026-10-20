@@ -34,8 +34,11 @@ Source snapshots: [releases](https://github.com/DewXIT/isko-tizen/releases) ·
   an on-demand control bar that leaves room for the page.
 - **Website playback:** the original site player, fullscreen hooks and a manual
   video-path option for compatibility investigation.
-- **Default-on protection prototype:** popup/navigation policies, a small request blocklist
-  and per-session exceptions. Protection is experimental and not comprehensive.
+- **Default-on protection (early):** a small rule engine with a bundled starter list of
+  ad-network hosts, a popup policy based on the user's last remote press, removal of
+  full-viewport ad layers and click traps (the remote click goes through them to the page),
+  and a refusal of file downloads. A site exception turns the filters off. It is
+  breakage-averse by design, not a complete ad blocker; see [protection](docs/protection.md).
 - **Your installation:** build and sign locally using your own TV configuration.
   The normal package has no remote-control server or runtime inspector enabled.
 
@@ -84,7 +87,7 @@ These are the current code mappings; key names and IME behavior can vary by TV.
 | --- | --- |
 | Arrows | Move shell focus, or move the pointer on a page; scroll at page edges. |
 | OK / Enter | Activate the shell item or request a click under the pointer. |
-| Back | Close an overlay; on a page, leave HTML fullscreen or go back in history, then show controls with Close selected. |
+| Back | Close an overlay; on a page, leave HTML fullscreen or go back in history, then show controls with Close selected. With no history the bar's Back slot becomes Close. |
 | Menu / color key | Toggle page controls; on home, open the menu, when the remote provides that key. |
 
 Page clicks are synthetic and cannot grant trusted browser activation. If the
@@ -104,6 +107,8 @@ node tools/check-public-data.cjs
 node tools/fixture-server/test-handlers.js
 ```
 
+Before a device session read the [device checklist](docs/tv-checklist.md).
+
 These checks do not run the native application or prove video playback. The
 `net6.0` target is reference compilation only. Samsung's device target and SDK
 versions remain separate requirements. Existing .NET 6 support warnings are visible.
@@ -122,7 +127,7 @@ normal TV packages. A CI workflow is provided as
 [an inactive template](tools/ci/verify.example.yml); see [verification](docs/testing.md).
 
 Read [architecture](docs/app.md), [browser/video limits](docs/browser-video-analysis.md),
-[engine hooks](docs/experimental-engine.md), [API audit](docs/nui-api12.md),
+[engine hooks](docs/engine-hooks.md), [API audit](docs/nui-api12.md),
 [protection](docs/protection.md) and [third-party notices](THIRD_PARTY_NOTICES.md).
 
 ## Get involved

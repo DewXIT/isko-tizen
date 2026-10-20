@@ -7,9 +7,11 @@ Liczą się prostota, małe zużycie zasobów i szybka reakcja na pilot. Główn
 odbiorców są użytkownicy w Polsce. [Pełny opis kierunku projektu](vision.md).
 
 Isko ma natywny kursor, pasek adresu i wyszukiwania, ekran główny, ulubione,
-historię i pasek sterowania pokazywany na żądanie. Zawiera też eksperymentalne
-reguły ochrony przed częścią popupów i żądań, domyślnie włączone. To jeszcze nie
-pełna ochrona w rodzaju uBlocka. Interfejs jest obecnie głównie po polsku.
+historię i pasek sterowania pokazywany na żądanie. Zawiera też wczesną ochronę,
+domyślnie włączoną: małą wbudowaną listę hostów reklamowych, politykę popupów opartą na
+ostatnim naciśnięciu pilota, usuwanie nakładek na całe okno i pułapek na kliknięcia oraz
+odmowę pobierania plików. Wyjątek dla strony wyłącza filtry. To jeszcze nie pełna ochrona
+w rodzaju uBlocka; patrz [protection](protection.md). Interfejs jest obecnie głównie po polsku.
 
 ## Stan projektu
 

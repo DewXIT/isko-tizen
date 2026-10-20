@@ -16,10 +16,14 @@ internal static class PageScripts
     // Remote cursor. FX/FY are the cursor's fraction of the viewport, so device pixel ratio
     // never matters. Same-origin frames and open shadow roots are entered; a cross-origin
     // frame receives nothing, because no public API injects real touch input.
-    // A click trap is a viewport-sized fixed/absolute layer with no content of its own (transparent, or
-    // at an extreme z-index) that swallows the click and opens an ad. The cursor click goes to the element
-    // under it instead. Any failure to inspect an element means "not a trap": clicking normally is the safe default.
+    // A click trap is a viewport-sized fixed/absolute layer with no content of its own that swallows the click and
+    // opens an ad: invisible (opacity 0), at an extreme z-index, or an empty link to another site. A merely
+    // transparent layer at an ordinary z-index is NOT treated as a trap: UI toolkits use those as click-away
+    // backdrops. The cursor click goes to the element under a trap. Any failure to inspect an element means
+    // "not a trap": clicking normally is the safe default.
     private const string Target = @"const w0=window;let d=document,w=window,x=FX*innerWidth,y=FY*innerHeight,e=null;
+        let site0='';try{site0=w0.location.hostname.split('.').slice(-2).join('.')}catch(_){}
+        const own=u=>{try{return new URL(u,w0.location.href).hostname.endsWith(site0)}catch(_){return true}};
         const trap=(n,v)=>{try{
           if(!n.tagName||/^(IFRAME|FRAME|VIDEO|AUDIO|EMBED|OBJECT|CANVAS|HTML|BODY)$/.test(n.tagName))return false;
           const s=v.getComputedStyle(n);if(s.position!=='fixed'&&s.position!=='absolute')return false;
@@ -29,8 +33,7 @@ internal static class PageScripts
           if(!big&&!ghost)return false;
           if((n.textContent||'').trim()||n.getElementsByTagName('*').length>3||
             n.querySelector('img,video,canvas,svg,iframe,input,button,audio'))return false;
-          const bg=s.backgroundColor,clear=!bg||bg==='transparent'||/rgba\(.*,\s*0\)$/.test(bg);
-          return ghost||(clear&&s.backgroundImage==='none')||Number(s.opacity)<.05||Number(s.zIndex)>=2147483000
+          return ghost||Number(s.opacity)<.05||Number(s.zIndex)>=2147483000||(n.tagName==='A'&&!!n.href&&!own(n.href))
         }catch(_){return false}};
         const pick=(dd,v,px,py)=>{const l=dd.elementsFromPoint?dd.elementsFromPoint(px,py):[dd.elementFromPoint(px,py)];
           for(const n of l)if(n&&!trap(n,v))return n;return l[0]||null};
@@ -64,7 +67,8 @@ internal static class PageScripts
     // unless it holds a form or first-party content. The observer only watches direct children of body.
     private const string SweepBody = @"
         const BIG=2147483000,site=location.hostname.split('.').slice(-2).join('.');
-        const mine=u=>{try{return new URL(u,location.href).hostname.endsWith(site)}catch(_){return false}};
+        // blob: URLs have no host; their origin says which page made them (MSE players use them).
+        const mine=u=>{try{const x=new URL(u,location.href);let h=x.hostname;if(!h)h=new URL(x.origin).hostname;return h.endsWith(site)}catch(_){return false}};
         const big=n=>{const s=getComputedStyle(n);if(s.position!=='fixed'||!(Number(s.zIndex)>=BIG))return false;
           const r=n.getBoundingClientRect();return r.width>=innerWidth*.8&&r.height>=innerHeight*.8};
         const clean=n=>!n.querySelector('input,textarea,select')&&

@@ -78,9 +78,9 @@ function layer(tag, over) {
 }
 function clickWith(stack) {
   const w = { innerWidth: 1920, innerHeight: 1080, MouseEvent: Mouse, PointerEvent: Mouse,
-    getComputedStyle: el => el.style };
+    location: { hostname: 'watch.example.org', href: 'https://watch.example.org/' }, getComputedStyle: el => el.style };
   const d = { elementsFromPoint: () => stack, elementFromPoint: () => stack[0] };
-  vm.runInNewContext(click, { window: w, document: d, innerWidth: 1920, innerHeight: 1080, MouseEvent: Mouse });
+  vm.runInNewContext(click, { window: w, document: d, innerWidth: 1920, innerHeight: 1080, MouseEvent: Mouse, URL });
 }
 const player = layer('DIV', { getBoundingClientRect: () => ({ width: 997, height: 561 }) });
 let trapLayer = layer('A', { style: { position: 'fixed', zIndex: '2147483647' } });
@@ -108,6 +108,19 @@ assert.strictEqual(underGhost.events.length, 5);
 const faintSmall = layer('DIV', { style: { position: 'fixed', zIndex: '50', opacity: '0' }, getBoundingClientRect: () => ({ width: 339, height: 672 }) });
 clickWith([faintSmall, underGhost]);
 assert.strictEqual(faintSmall.events.length, 5, 'A partial invisible layer at an ordinary z-index is left alone');
+// Heuristic refinements: a transparent click-away backdrop at an ordinary z-index is not a trap; an empty
+// full-viewport link to another site is, whatever its z-index.
+const backdrop = layer('DIV', { style: { position: 'fixed', zIndex: '1300' } }), beneathBackdrop = layer('DIV', { getBoundingClientRect: () => ({ width: 100, height: 100 }) });
+clickWith([backdrop, beneathBackdrop]);
+assert.strictEqual(backdrop.events.length, 5, 'A transparent backdrop at an ordinary z-index still receives the click');
+assert.strictEqual(beneathBackdrop.events.length, 0);
+const adLink = layer('A', { href: 'https://ads.example.net/x', style: { position: 'fixed', zIndex: '100' } }), beneathLink = layer('DIV', { getBoundingClientRect: () => ({ width: 100, height: 100 }) });
+clickWith([adLink, beneathLink]);
+assert.strictEqual(adLink.events.length, 0, 'An empty full-viewport link to another site is skipped');
+assert.strictEqual(beneathLink.events.length, 5);
+const ownLink = layer('A', { href: 'https://watch.example.org/next', style: { position: 'fixed', zIndex: '100' } });
+clickWith([ownLink, beneathLink]);
+assert.strictEqual(ownLink.events.length, 5, 'An empty full-viewport link to the same site keeps the click');
 const loneTrap = layer('A', { style: { position: 'fixed', zIndex: '2147483647' } });
 clickWith([loneTrap]);
 assert.strictEqual(loneTrap.events.length, 5, 'When nothing is under a trap, the original topmost element is used');
@@ -144,6 +157,11 @@ assert(modalInShadow.removed && modalInShadow.hidden, 'A max-z modal inside a sh
 assert(trapDiv.removed, 'A viewport-sized max-z layer is removed');
 assert(foreignVideo.removed, 'A layer with a third-party ad video is removed');
 for (const keep of [cookieBar, formModal, ownVideo, smallLayer, normal]) assert(!keep.removed, 'Ordinary, form, first-party or small layers are kept');
+const mseOwn = box({ querySelectorAll: () => [{ currentSrc: 'blob:https://watch.example.org/4f2c-uuid' }] });
+const mseForeign = box({ querySelectorAll: () => [{ currentSrc: 'blob:https://ads.example.net/9a1b-uuid' }] });
+sweepRun([mseOwn, mseForeign]);
+assert(!mseOwn.removed, 'A first-party player using a blob: (MSE) source is kept');
+assert(mseForeign.removed, 'A blob: source created by another site does not protect a layer');
 const off = box(); sweepRun([off], false); assert(!off.removed, 'Disabled protection leaves layers alone');
 const inFs = box(); sweepRun([inFs], true, {}); assert(!inFs.removed, 'No sweeping while real fullscreen is active');
 const late = [], lateEl = box(); const run = sweepRun(late);

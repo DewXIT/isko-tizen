@@ -1,5 +1,25 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Filter rule engine with a bundled starter list of ad-network hosts; requests to a page's own site are never blocked.
+- Popup policy driven by the user's last remote press: same-site only, listed or cross-site targets blocked.
+- Removal of full-viewport maximum-z-index layers (ad interstitials, click traps) and click-through for the remote cursor.
+- Refusal of file downloads (engine response policy plus a page-side guard), independent of the protection switch.
+- Back slot on the control bar becomes Close when there is no history.
+- Developer-only `--start-url` build option and fixture event channel for unattended device runs; device session checklist.
+
+### Fixed
+
+- The request interceptor is registered once per page. Unregistering it on a live page (protection off or a site exception) stalled the page on a TV.
+- `tools/tv/package.cjs --install` no longer fails on a shadowed variable.
+
+### Removed
+
+- The separate Lab and Legacy (API11) projects.
+
 ## v0.1.0-alpha.1 — 2026-10-20
 
 First public alpha source snapshot for Tizen 9 / API12.

@@ -117,7 +117,7 @@ internal sealed class Program : NUIApplication
         icons = new SiteIcons(data);
         try {
             var logo = System.IO.Path.Combine(Application.Current.DirectoryInfo.SharedResource, "isko.png");
-            if (File.Exists(logo)) logoPath = logo; // Lab ships no artwork and falls back to the wordmark.
+            if (File.Exists(logo)) logoPath = logo;
         } catch { }
         try { if (Information.TryGetValue("http://tizen.org/feature/platform.version", out string value)) platform = value; } catch { }
         BuildBackdrop(); BuildHome(); BuildBarFrame(); BuildMenuFrame(); BuildEdit(); BuildLoading(); BuildCursor(); BuildToast();
@@ -427,8 +427,10 @@ internal sealed class Program : NUIApplication
             // Some on-screen keyboards commit their Go key as a line break instead of a key event.
             var text = address.Text;
             if (text.IndexOfAny(LineBreaks) >= 0) {
+                // Not inside the field's own change event: editing the text or tearing the overlay down there
+                // re-enters the native text control.
                 text = text.Replace("\r", "").Replace("\n", "");
-                address.Text = text; Submit(text); return;
+                Defer(() => { if (chrome.Overlay == ChromeOverlay.Address) { address.Text = text; Submit(text); } }); return;
             }
             editErrorShown = false; UpdateSuggestions();
         };
@@ -454,7 +456,7 @@ internal sealed class Program : NUIApplication
         if (text.Length != 0) {
             var typed = text;
             Row(Layer.Suggestions, "suggest-go", LooksLikeAddress(text) ? "Przejdź do " + text : "Szukaj „" + text + "”",
-                LooksLikeAddress(text) ? "go" : "search", 200, y, 1520, 88, () => Submit(typed));
+                LooksLikeAddress(text) ? "go" : "search", 200, y, 1520, 88, () => Defer(() => Submit(typed)));
             y += 100;
         }
         foreach (var origin in session.Favorites.Concat(session.History).Distinct()
@@ -465,6 +467,19 @@ internal sealed class Program : NUIApplication
             y += 100;
         }
         Render();
+    }
+    // Runs after the current native event returns, so a handler never disposes the view that is calling it.
+    private readonly HashSet<Tizen.NUI.Timer> deferred = new();
+    private void Defer(Action action)
+    {
+        var once = new Tizen.NUI.Timer(30);
+        deferred.Add(once); // rooted until it fires: nothing else references a one-shot timer
+        once.Tick += (_, _) => {
+            once.Stop(); deferred.Remove(once); once.Dispose();
+            if (!terminating) { try { action(); } catch { metrics.Event("deferred-action-failed"); } }
+            return false;
+        };
+        once.Start();
     }
     private static readonly char[] LineBreaks = { '\r', '\n' };
     // The keyboard's Go/Enter does not always reach the field's own handler; the window sees it either way.
