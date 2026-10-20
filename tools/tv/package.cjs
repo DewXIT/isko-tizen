@@ -53,8 +53,8 @@ function main(args) {
       if (require('../check-public-data.cjs').scanArchive(result.signed).length) throw Error('Package publication audit failed; installation stopped.');
     }
     // Argument arrays, no shell expansion; no password or private key is read by this script.
-    const result = spawnSync(job.executable, job.args, { cwd: root, env, stdio: 'inherit', shell: false });
-    if (result.error || result.status !== 0) throw Error('Packaging/install step failed. See local tool output.');
+    const step = spawnSync(job.executable, job.args, { cwd: root, env, stdio: 'inherit', shell: false });
+    if (step.error || step.status !== 0) throw Error('Packaging/install step failed. See local tool output.');
   }
   if (require('../check-public-data.cjs').scanArchive(result.signed).length) throw Error('Package publication audit failed.');
   console.log('Signed package created in the configured artifacts directory.');
