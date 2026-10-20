@@ -29,8 +29,24 @@ assert.strictEqual(request('/api/counters?run=test').json().arrivals, 1);
 request('/api/reset?run=test', 'POST');
 assert.strictEqual(request('/api/counters?run=test').json().adRequests, 0);
 assert.strictEqual(request('/ad-probe?run=bad%20run').status, 400);
+const download = request('/download/sample.zip?run=test');
+assert.strictEqual(download.status, 200);
+assert.strictEqual(download.headers['Content-Type'], 'application/zip');
+assert(/^attachment/.test(download.headers['Content-Disposition']), 'archive is served as an attachment');
+assert(download.body.startsWith('PK'), 'a valid (empty) ZIP end record');
+assert.strictEqual(request('/api/counters?run=test').json().downloads, 1);
+assert.strictEqual(request('/download/sample.zip?run=bad%20run').status, 400);
+assert.strictEqual(request('/api/reset?run=test', 'POST').json().downloads, 0);
+// Browser-side fixtures must at least parse; their behavior is exercised in a real browser or on the device.
+const fs = require('fs'), path = require('path'), vm = require('vm');
+new vm.Script(fs.readFileSync(path.join(__dirname, 'public/fixture.js'), 'utf8'));
+const frameScript = /<script>([\s\S]*)<\/script>/.exec(fs.readFileSync(path.join(__dirname, 'public/frame.html'), 'utf8'));
+assert(frameScript, 'frame fixture has a script'); new vm.Script(frameScript[1]);
+for (const id of ['arm-interstitial', 'popup-delayed', 'state', 'dl-attr', 'dl-plain', 'dl-script', 'bait-start', 'arm-trap', 'trap-play'])
+  assert(request('/').body.includes('id="' + id + '"'), 'index fixture has #' + id);
+assert(fs.readFileSync(path.join(__dirname, 'public/frame.html'), 'utf8').includes('id="popup-x"'), 'frame fixture has the cross-site popup button');
 assert.strictEqual(request('/../../server.js').status, 404);
 for (let i = 0; i < 499; i++) request('/api/reset?run=r' + i, 'POST');
 assert.strictEqual(request('/api/reset?run=overflow', 'POST').status, 429);
 assert.strictEqual(request('/ad-probe?run=overflow').status, 429);
-console.log('PASS in-process fixture handlers: routes, two-origin shared counters, positive baseline, reset, run isolation, validation, capacity bound');
+console.log('PASS in-process fixture handlers: routes, two-origin shared counters, positive baseline, reset, run isolation, validation, capacity bound, download archive, fixture scripts parse');

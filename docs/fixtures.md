@@ -29,3 +29,11 @@ visibility versus request counters, frame boundaries, fullscreen, source switchi
 and cleanup. A blocked-resource zero count needs a positive unblocked control.
 Use independent run IDs, bounded numeric counters and no browsing credentials.
 Hour-long playback and repeated lifecycle tests require future device evidence.
+
+Protection scenarios added for the TV session ([checklist](tv-checklist.md)): a transparent full-viewport click
+trap over a button, a shadow-DOM interstitial at the maximum z-index, `a[download]`/plain/scripted downloads of an
+empty archive (`/download/sample.zip`, counted per run as `downloads`), ad-like bait slots that must not be hidden,
+and a cross-site `window.open` from a cross-origin frame. The cross-site target is a different host name
+(`localhost` versus `127.0.0.1`, or `ISKO_CROSS_ORIGIN`). The server counters show requests that arrived;
+only the app's own counters show what it refused. Browser-side behavior of these pages was checked with the app's
+bundled scripts in a desktop browser, not in the TV WebView.

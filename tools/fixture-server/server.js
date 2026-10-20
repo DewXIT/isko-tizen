@@ -15,6 +15,7 @@ function createFixtureServer(options = {}) {
     crossOrigin = parsed.origin;
   }
   const counters = new Map();
+  const blank = () => ({ adRequests: 0, arrivals: 0, downloads: 0 });
   const servers = [];
   let ports = options.ports || [8765, 8766];
   const send = (res, status, body, type = 'application/json') => {
@@ -26,18 +27,29 @@ function createFixtureServer(options = {}) {
       let url;
       try { url = new URL(req.url, 'http://fixture.invalid'); } catch (_) { return send(res, 400, { error: 'bad request' }); }
       const run = url.searchParams.get('run');
-      const needsRun = ['/ad-probe', '/api/counters', '/api/reset', '/arrived'].includes(url.pathname);
+      const needsRun = ['/ad-probe', '/api/counters', '/api/reset', '/arrived', '/download/sample.zip'].includes(url.pathname);
       if (needsRun && !validRun(run)) return send(res, 400, { error: 'run must be 1–48 ASCII letters, digits, _ or -' });
       if (url.pathname === '/api/reset') {
         if (req.method !== 'POST') return send(res, 405, { error: 'POST required' });
         if (!counters.has(run) && counters.size >= 500) return send(res, 429, { error: 'restart fixture server to clear run capacity' });
-        counters.set(run, { adRequests: 0, arrivals: 0 });
-        return send(res, 200, { run, adRequests: 0, arrivals: 0 });
+        counters.set(run, blank());
+        return send(res, 200, { run, ...blank() });
       }
-      if (url.pathname === '/api/counters') return send(res, 200, { run, ...(counters.get(run) || { adRequests: 0, arrivals: 0 }) });
+      if (url.pathname === '/api/counters') return send(res, 200, { run, ...(counters.get(run) || blank()) });
+      if (url.pathname === '/download/sample.zip') {
+        // Counts requests that reach the server. A refused download may still be requested; the app's own
+        // downloadsBlocked counter, not this one, is the evidence that nothing was saved.
+        if (!counters.has(run) && counters.size >= 500) return send(res, 429, { error: 'restart fixture server to clear run capacity' });
+        const count = counters.get(run) || blank();
+        count.downloads++; counters.set(run, count);
+        if (options.log !== false) process.stdout.write(JSON.stringify({ run, event: 'download-request-received', origin: originIndex, ...count }) + '\n');
+        res.writeHead(200, { 'Content-Type': 'application/zip', 'Content-Disposition': 'attachment; filename="fixture.zip"', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
+        // An empty but valid ZIP archive: end-of-central-directory record only.
+        return res.end(Buffer.concat([Buffer.from([0x50, 0x4b, 0x05, 0x06]), Buffer.alloc(18)]));
+      }
       if (url.pathname === '/ad-probe' || url.pathname === '/arrived') {
         if (!counters.has(run) && counters.size >= 500) return send(res, 429, { error: 'restart fixture server to clear run capacity' });
-        const count = counters.get(run) || { adRequests: 0, arrivals: 0 };
+        const count = counters.get(run) || blank();
         count[url.pathname === '/ad-probe' ? 'adRequests' : 'arrivals']++;
         counters.set(run, count);
         // Only controlled run IDs, resource categories and numeric counts reach stdout.
