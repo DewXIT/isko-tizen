@@ -89,6 +89,7 @@ internal sealed class Program : NUIApplication
         window = Tizen.NUI.Window.Default;
         window.BackgroundColor = Background;
         window.Resized += OnResized;
+        window.KeyEvent += OnWindowKey;
         // The platform's rectangular focus frame ignores rounded shapes; Highlight draws focus instead.
         FocusManager.Instance.FocusIndicator = new View();
         stage = new View {
@@ -358,9 +359,9 @@ internal sealed class Program : NUIApplication
             }
             if (saved.Count > 7) {
                 if (savedPage > 0) Button(Layer.MenuItems, "menu-prev", "Poprzednie", "back", 1336, 940, 256, 80,
-                    () => { savedPage--; OpenMenu(section, false); }, Kind.Glass);
+                    () => { savedPage--; OpenMenu(section, false); FocusMenuKey("menu-prev", "menu-next"); }, Kind.Glass);
                 if ((savedPage + 1) * 7 < saved.Count) Button(Layer.MenuItems, "menu-next", "Następne", "", 1608, 940, 256, 80,
-                    () => { savedPage++; OpenMenu(section, false); }, Kind.Glass);
+                    () => { savedPage++; OpenMenu(section, false); FocusMenuKey("menu-next", "menu-prev"); }, Kind.Glass);
             }
         } else if (section == "protection") {
             menuHeading.Text = "Ochrona";
@@ -378,6 +379,15 @@ internal sealed class Program : NUIApplication
         if (first != null) FocusManager.Instance.SetCurrentFocusView(first.View);
     }
 
+    // After paging, stay on the pager so repeated presses keep turning pages; fall back when it vanished.
+    private void FocusMenuKey(params string[] keys)
+    {
+        foreach (var key in keys) {
+            var target = elements.FirstOrDefault(e => e.Layer == Layer.MenuItems && e.Key == key && e.Visible);
+            if (target != null) { FocusManager.Instance.SetCurrentFocusView(target.View); return; }
+        }
+    }
+
     // ---------- Address entry with suggestions ----------
     private void BuildEdit()
     {
@@ -389,7 +399,7 @@ internal sealed class Program : NUIApplication
         address = new TextField {
             PlaceholderText = "Adres, np. twitch.tv — albo czego szukasz", PixelSize = 36,
             TextColor = Ink, PlaceholderTextColor = new Vector4(0.42f, 0.45f, 0.5f, 1), BackgroundColor = Color.Transparent,
-            EnableMarkup = false, Position = new Position(100, 0), Size = new Size(1380, 104)
+            EnableMarkup = false, VerticalAlignment = VerticalAlignment.Center, Position = new Position(100, 0), Size = new Size(1380, 104)
         };
         var input = new InputMethod {
             PanelLayout = InputMethod.PanelLayoutType.URL, AutoCapital = InputMethod.AutoCapitalType.None,
@@ -398,7 +408,16 @@ internal sealed class Program : NUIApplication
         address.InputMethodSettings = input.OutputMap;
         address.GetInputMethodContext().TextPrediction = false;
         address.KeyEvent += HandleKey;
-        address.TextChanged += (_, _) => { if (chrome.Overlay == ChromeOverlay.Address) { editErrorShown = false; UpdateSuggestions(); } };
+        address.TextChanged += (_, _) => {
+            if (chrome.Overlay != ChromeOverlay.Address) return;
+            // Some on-screen keyboards commit their Go key as a line break instead of a key event.
+            var text = address.Text;
+            if (text.IndexOfAny(LineBreaks) >= 0) {
+                text = text.Replace("\r", "").Replace("\n", "");
+                address.Text = text; Submit(text); return;
+            }
+            editErrorShown = false; UpdateSuggestions();
+        };
         pill.Add(address);
         // Shown only for an invalid address; the keys need no legend.
         editError = Panel(Layer.Edit, 228, 264, 760, 52, new Color(1, 0.33f, 0.4f, 0.16f), 26);
@@ -416,7 +435,8 @@ internal sealed class Program : NUIApplication
     {
         Clear(Layer.Suggestions);
         var text = address.Text.Trim();
-        var y = 336f;
+        // Close under the field; the invalid-address chip needs the room between them only while it shows.
+        var y = editErrorShown ? 336f : 276f;
         if (text.Length != 0) {
             var typed = text;
             Row(Layer.Suggestions, "suggest-go", LooksLikeAddress(text) ? "Przejdź do " + text : "Szukaj „" + text + "”",
@@ -431,6 +451,14 @@ internal sealed class Program : NUIApplication
             y += 100;
         }
         Render();
+    }
+    private static readonly char[] LineBreaks = { '\r', '\n' };
+    // The keyboard's Go/Enter does not always reach the field's own handler; the window sees it either way.
+    // Submit leaves the address overlay, so a key seen by both handlers is acted on once.
+    private void OnWindowKey(object? sender, Tizen.NUI.Window.KeyEventArgs args)
+    {
+        if (chrome.Overlay != ChromeOverlay.Address || args.Key.State != Key.StateType.Down) return;
+        if (args.Key.KeyPressedName is "Return" or "KP_Enter" && address.HasFocus()) Submit(address.Text);
     }
     private static bool LooksLikeAddress(string text) =>
         text.Contains("://") || (!text.Contains(' ') && (text.Contains('.') || text.StartsWith("localhost")));
@@ -825,7 +853,8 @@ internal sealed class Program : NUIApplication
                 editHint.Text = "To nie jest adres strony. Spróbuj np. twitch.tv";
                 var width = Math.Min(1460, 58 + Measure(editHint) + 30);
                 editError.Size = new Size(width, 52); editHint.Size = new Size(width - 58, 52);
-                editErrorShown = true; Render();
+                editErrorShown = true; UpdateSuggestions();
+                FocusManager.Instance.SetCurrentFocusView(address); // the rebuilt rows replace the focused one
             }
             else SetStatus("Nieprawidłowy adres strony");
             return;
@@ -920,7 +949,7 @@ internal sealed class Program : NUIApplication
         if (key == "XF86Exit") { ClosePage(); return true; }
         if (ReferenceEquals(sender, page.Current)) return PageKey(key);
         if (typing) {
-            if (key is "Return" or "KP_Enter") { Submit(address.Text); return true; }
+            if (key is "Return" or "KP_Enter") { if (chrome.Overlay == ChromeOverlay.Address) Submit(address.Text); return true; }
             if (key == "Down") {
                 var first = elements.FirstOrDefault(e => e.Layer == Layer.Suggestions && e.Control);
                 if (first != null) FocusManager.Instance.SetCurrentFocusView(first.View);
@@ -979,7 +1008,7 @@ internal sealed class Program : NUIApplication
             if (timer != null) { timer.Stop(); timer.Tick -= Tick; timer.Dispose(); timer = null; }
             if (inputTimer != null) { inputTimer.Stop(); inputTimer.Tick -= FlushPageInput; inputTimer.Dispose(); inputTimer = null; }
             loadingMotion?.Stop(); loadingMotion?.Dispose(); loadingMotion = null;
-            if (window != null) { window.Resized -= OnResized; ClosePage(false); }
+            if (window != null) { window.Resized -= OnResized; window.KeyEvent -= OnWindowKey; ClosePage(false); }
         } finally { engine.Dispose(); metrics.Dispose(); base.OnTerminate(); }
     }
 }
