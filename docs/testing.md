@@ -13,15 +13,20 @@ Executed on the standalone source tree:
 
 - Default NUI reference build: PASS, with existing .NET 6 support warnings
   and the SDK XAML assembly notice.
-- Core ownership/cursor/input model and compiled API12 audit: PASS; 174 Tizen
-  references, 34 reviewed hidden members.
-- Protection policy: PASS, 41 assertions.
+- Core ownership/cursor/input model and compiled API12 audit: PASS; 186 Tizen
+  references, 43 hidden members, all reviewed.
+- Protection policy: PASS, 89 assertions.
 - Page-script DOM doubles, packaging-plan/privacy/ZIP tests, diagnostic fallback
   and in-process fixture handlers: PASS.
 - Real host-loopback HTTP fixture checks: PASS. Media range was explicitly skipped
   because the clean source distribution contains no generated MP4.
 - No signed package, SDK credential access, TV connection or native execution was
   performed for this import. Generated output stays ignored, outside the commit.
+
+Page-close memory release (tile resources, engine free-unused-memory, forced
+managed-heap compaction on close): compiles and passes the hidden-API review. Its
+effect on memory or smoothness is NOT measured; compare `after-close` samples on a
+TV session before claiming any benefit.
 
 Source/test/tool code matches the reviewed baseline. Logo pixel payload is
 unchanged; only non-pixel provenance metadata was removed. Public-data checks

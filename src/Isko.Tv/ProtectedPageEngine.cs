@@ -15,7 +15,7 @@ internal sealed class ProtectedPageEngine : PageEngine
     private readonly Stopwatch clock = Stopwatch.StartNew();
     private ProtectionPolicy policy = new(); // Replaced, never mutated after publication.
     private WebView? view;
-    private WebContext? context;
+    private WebContext? context, releasedContext;
     private Tizen.NUI.Timer? timer;
     private Action close = () => { };
     private Action<string> navigate = _ => { }, status = _ => { };
@@ -267,8 +267,18 @@ internal sealed class ProtectedPageEngine : PageEngine
         page.FullscreenExited -= Exited;
         Interlocked.Increment(ref generation);
         try { page.EvaluateJavaScript(PageScripts.ReleaseMedia); } catch { metrics.Event("lab-media-release-script-failed"); }
+        // Drop rendered tile bitmaps before the view goes away; best effort, never blocks closing.
+        try { page.ClearAllTilesResources(); } catch { metrics.Event("tiles-clear-failed"); }
+        releasedContext = context;
         view = null; context = null; requestCallback = null; downloadCallback = null; backDeadline = 0;
         while (completions.TryDequeue(out _)) { }
+    }
+    public override void Released()
+    {
+        var ctx = releasedContext; releasedContext = null;
+        try { ctx?.FreeUnusedMemory(); } catch { metrics.Event("free-unused-memory-failed"); }
+        // Closing a page is the one moment nothing is playing: compact the managed heap here, never during playback.
+        GC.Collect(2, GCCollectionMode.Forced, true, true);
     }
     public override void Dispose()
     {

@@ -172,6 +172,10 @@ if (args.Length == 1) {
         "Tizen.NUI.BaseComponents.WebView::EvaluateJavaScript(String,Tizen.NUI.BaseComponents.WebView+JavaScriptMessageHandler)",
         "Tizen.NUI.BaseComponents.WebView+JavaScriptMessageHandler",
         "Tizen.NUI.BaseComponents.WebView::ExitFullscreen()",
+        // Engine: release rendered tiles and unused engine memory when a page closes. API12 reference docs
+        // list no privilege for either member; only the manifest's internet applies.
+        "Tizen.NUI.BaseComponents.WebView::ClearAllTilesResources()",
+        "Tizen.NUI.WebContext::FreeUnusedMemory()",
         // API12 video path switch: public SDK property, no additional privilege documented.
         "Tizen.NUI.BaseComponents.WebView::get_VideoHoleEnabled()",
         "Tizen.NUI.BaseComponents.WebView::set_VideoHoleEnabled(Boolean)",

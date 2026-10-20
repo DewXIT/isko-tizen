@@ -985,6 +985,7 @@ internal sealed class Program : NUIApplication
         })) {
             metrics.Event("webview-destruction-failed"); SetStatus("Nie udało się zamknąć strony. Uruchom Isko ponownie"); return false;
         }
+        engine.Released();
         currentUrl = ""; SetLoading(false); cursor.Hide();
         chrome.PageClosed(); toastUntil = 0; UpdateHome(); homeStale = false; Render();
         if (!terminating && focusHome) FocusHome();

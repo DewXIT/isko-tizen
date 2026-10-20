@@ -11,6 +11,8 @@ internal class PageEngine : IDisposable
     public virtual void Started(string url) { }
     public virtual void Loaded(string url) { }
     public virtual void Detach(WebView view) { }
+    // Called after the WebView is destroyed: give the engine and the managed heap a chance to return memory.
+    public virtual void Released() { }
     public virtual bool Back() => false;
     // The user pressed OK on the page: the only gesture signal the native popup event lacks.
     public virtual void UserInput() { }
