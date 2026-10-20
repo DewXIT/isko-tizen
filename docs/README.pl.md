@@ -1,12 +1,15 @@
 # Isko Tizen — przeglądarka na Samsung Smart TV
 
 Otwarty projekt przeglądarki na **Tizen 9**, napisany w **C# / .NET**, z silnikiem
-**NUI WebView**. Cel: wygodne przeglądanie stron pilotem i stabilne, długie sesje
-oglądania z odtwarzaczem dostarczanym przez stronę.
+**NUI WebView**. Główny cel: **wchodzę na stronę, wybieram transmisję lub film
+i oglądam płynnie**, z ochroną przed reklamami i popupami włączoną domyślnie.
+Liczą się prostota, małe zużycie zasobów i szybka reakcja na pilot. Główną grupą
+odbiorców są użytkownicy w Polsce. [Pełny opis kierunku projektu](vision.md).
 
 Isko ma natywny kursor, pasek adresu i wyszukiwania, ekran główny, ulubione,
 historię i pasek sterowania pokazywany na żądanie. Zawiera też eksperymentalne
-reguły ochrony przed częścią popupów i żądań. Interfejs jest obecnie głównie po polsku.
+reguły ochrony przed częścią popupów i żądań, domyślnie włączone. To jeszcze nie
+pełna ochrona w rodzaju uBlocka. Interfejs jest obecnie głównie po polsku.
 
 ## Stan projektu
 

@@ -3,6 +3,11 @@
 Isko.Protection is original netstandard2.0 policy code with no downloaded filter
 lists. Popup, navigation, HTTP resource and cosmetic decisions remain distinct.
 
+Protection is enabled by default in both the policy and default native engine.
+The [product goal](vision.md) is broader ad/popup protection that works without
+initial setup and preserves playback. The current prototype does not meet that
+goal; list sourcing/licensing/updates and wider filtering need further design.
+
 - New windows are denied while enabled; accepted HTTP(S) targets reuse one view.
 - Navigation rejects unsafe protocols and known ad-host destinations. Unknown
   gesture metadata is allowed rather than assumed to be an unwanted redirect.

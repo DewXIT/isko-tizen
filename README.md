@@ -13,6 +13,12 @@ with **Tizen NUI WebView**. It pairs a native browser shell and remote-controlle
 cursor with the website's own player. The goal is responsive navigation and
 stable, long viewing sessions on a TV.
 
+The core experience is **open a page → choose a live stream or video → watch
+smoothly**, with **ad and popup protection on by default**. Simplicity and low
+resource use are product priorities. Poland is the primary audience; Polish is
+the default UI language. See the [product direction](docs/vision.md) (Polish).
+The current limited protection is not yet the intended uBlock-like experience.
+
 [Install on your TV](docs/install.md) · [Roadmap](docs/roadmap.md) ·
 [Contribute](CONTRIBUTING.md) · [Report a bug](https://github.com/DewXIT/isko-tizen/issues/new/choose) ·
 [Po polsku](docs/README.pl.md)
@@ -28,7 +34,7 @@ Source snapshots: [releases](https://github.com/DewXIT/isko-tizen/releases) ·
   an on-demand control bar that leaves room for the page.
 - **Website playback:** the original site player, fullscreen hooks and a manual
   video-path option for compatibility investigation.
-- **Small protection layer:** popup/navigation policies, a small request blocklist
+- **Default-on protection prototype:** popup/navigation policies, a small request blocklist
   and per-session exceptions. Protection is experimental and not comprehensive.
 - **Your installation:** build and sign locally using your own TV configuration.
   The normal package has no remote-control server or runtime inspector enabled.

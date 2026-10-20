@@ -6,6 +6,13 @@ Git history, private installation configuration or recorded TV diagnostics.
 Target: Tizen 9 / API12. `src/Isko.Tv` is the default; Lab shares its sources under
 a separate ID. Legacy targets API11/Tizen 8 and is not the selected backend.
 
+Product direction: [vision.md](vision.md). Primary audience: Poland, with Polish as
+the default user-facing language. The core flow is open page → choose live/video
+content → watch smoothly, using a simple remote-operated browser. Lightweight
+operation and default-on ad/popup protection are central requirements. Describe
+compatibility by browser behavior, not named target services. The current small
+rule set is enabled by default but does not meet the desired uBlock-like coverage.
+
 Current behavior: a native cursor moves without page JS; click/scroll scripts
 use a bounded buffer and cannot grant trusted browser user activation. Media
 observation is passive. A manual video-path toggle is guarded until page load.

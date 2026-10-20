@@ -2,6 +2,12 @@
 
 Read docs/HANDOFF.md and docs/testing.md before changing the project.
 
+- Product priority: a simple, lightweight browser for a Polish audience. Open a
+  page, select a live stream/video and watch smoothly with a TV remote. Read
+  docs/vision.md. Responsiveness, stable playback and default-on ad/popup protection
+  take priority over adding browser features. No named sites are product targets.
+- uBlock-like protection is a desired outcome, not a claim about the current small
+  rule set. Do not present it as implemented or verified without evidence.
 - Target Tizen 9.0, with pinned API12 reference assemblies. Model year is not an
   API version. Do not require a device readout before ordinary source work.
 - Do not connect to a TV, install packages or set up an emulator unless the user
