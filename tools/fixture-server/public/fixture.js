@@ -15,6 +15,14 @@
   bind('redirect', function () { clearTimeout(timer); var url = crossOrigin() + target(); timer = setTimeout(function () { location.href = url; }, 3000); log('redirect-armed'); });
   bind('cancel', function () { clearTimeout(timer); log('redirect-cancelled'); });
   bind('probe', function () { var img = new Image(); img.alt = 'ad request probe'; img.onload = function () { log('probe-loaded'); }; img.onerror = function () { log('probe-error-not-proof-of-block'); }; img.src = '/ad-probe?run=' + run() + '&nonce=' + Date.now(); document.getElementById('ad-slot').appendChild(img); });
+  bind('arm-trap', function () {
+    var old = document.getElementById('click-trap'); if (old) old.remove();
+    var trap = document.createElement('a'), clicks = 0; trap.id = 'click-trap'; trap.href = target(); trap.target = '_blank';
+    trap.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:2147483647;background:transparent';
+    trap.onclick = function () { clicks++; log('trap-click', { n: clicks }); if (clicks >= 3) trap.remove(); };
+    document.body.appendChild(trap); log('trap-armed');
+  });
+  bind('trap-play', function () { log('player-click'); });
   bind('hide', function () { document.getElementById('isko-test-banner').style.display = 'none'; log('cosmetic-control'); });
   bind('show', function () { document.getElementById('isko-test-banner').style.display = ''; });
   bind('frames', function () { var slot = document.getElementById('frame-slot'); slot.innerHTML = ''; [location.port, String(window.FIXTURE_PORTS[1])].forEach(function (port, index) { var frame = document.createElement('iframe'); frame.title = index ? 'Cross origin' : 'Same origin'; frame.src = (index ? crossOrigin() : location.protocol + '//' + location.hostname + ':' + port) + '/frame?run=' + run(); slot.appendChild(frame); }); });

@@ -67,6 +67,44 @@ target.closest = () => ({}); events.length = 0;
 vm.runInNewContext(click, inputContext); assert.strictEqual(events.length, 0, 'Disabled/inert controls cannot be clicked');
 doc.elementFromPoint = () => ({ tagName: 'IFRAME', contentDocument: null });
 vm.runInNewContext(click, inputContext); assert.strictEqual(events.length, 0, 'Cross-origin frames are not injected');
+// Click traps: the viewport-sized empty layer is skipped, ordinary and content-bearing layers are not.
+function layer(tag, over) {
+  const style = Object.assign({ position: 'static', backgroundColor: 'rgba(0, 0, 0, 0)', backgroundImage: 'none', opacity: '1', zIndex: 'auto' }, over.style);
+  const events = [];
+  return Object.assign({ tagName: tag, textContent: '', children: [], closest: () => null, focus() {},
+    getElementsByTagName: () => [], querySelector: () => null,
+    getBoundingClientRect: () => ({ width: 1920, height: 1080 }), events,
+    dispatchEvent(e) { events.push(e.type); return true; } }, over, { style });
+}
+function clickWith(stack) {
+  const w = { innerWidth: 1920, innerHeight: 1080, MouseEvent: Mouse, PointerEvent: Mouse,
+    getComputedStyle: el => el.style };
+  const d = { elementsFromPoint: () => stack, elementFromPoint: () => stack[0] };
+  vm.runInNewContext(click, { window: w, document: d, innerWidth: 1920, innerHeight: 1080, MouseEvent: Mouse });
+}
+const player = layer('DIV', { getBoundingClientRect: () => ({ width: 997, height: 561 }) });
+let trapLayer = layer('A', { style: { position: 'fixed', zIndex: '2147483647' } });
+clickWith([trapLayer, player]);
+assert.strictEqual(trapLayer.events.length, 0, 'An empty viewport-sized fixed layer must not receive the click');
+assert.strictEqual(player.events.length, 5, 'The element under the trap receives the click');
+for (const variant of [
+  { style: { position: 'fixed', backgroundColor: 'rgba(0, 0, 0, 0.7)', zIndex: '10' }, textContent: 'Accept cookies' },
+  { style: { position: 'fixed', backgroundColor: 'rgb(0, 0, 0)', zIndex: '10' } },
+  { style: { position: 'fixed', zIndex: '10' }, querySelector: () => ({}) },
+  { style: { position: 'static' } },
+  { style: { position: 'fixed' }, getBoundingClientRect: () => ({ width: 300, height: 200 }) },
+]) {
+  const other = layer('DIV', {}), below = layer('DIV', { getBoundingClientRect: () => ({ width: 100, height: 100 }) });
+  Object.assign(other, variant, { style: Object.assign({ position: 'static', backgroundColor: 'rgba(0, 0, 0, 0)', backgroundImage: 'none', opacity: '1', zIndex: 'auto' }, variant.style) });
+  clickWith([other, below]);
+  assert.strictEqual(other.events.length, 5, 'A real modal, opaque layer or small element still receives the click');
+  assert.strictEqual(below.events.length, 0);
+}
+const loneTrap = layer('A', { style: { position: 'fixed', zIndex: '2147483647' } });
+clickWith([loneTrap]);
+assert.strictEqual(loneTrap.events.length, 5, 'When nothing is under a trap, the original topmost element is used');
+const broken = layer('DIV', {}); broken.getBoundingClientRect = () => { throw new Error('detached'); };
+clickWith([broken, player]); assert.strictEqual(broken.events.length, 5, 'Inspection failure means ordinary click');
 const wheel = [];
 const childWin = { innerWidth: 320, innerHeight: 180, getComputedStyle: () => ({ overflowY: 'visible', overflowX: 'visible' }) };
 const childDoc = { defaultView: childWin, elementFromPoint: () => ({ tagName: 'DIV' }),
@@ -75,4 +113,4 @@ doc.elementFromPoint = () => ({ tagName: 'IFRAME', contentDocument: childDoc,
   getBoundingClientRect: () => ({ left: 0, top: 0 }) });
 vm.runInNewContext(script('Scroll').replace(/FX|FY/g, '0.1').replace(/DX/g, '0').replace(/DY/g, '0.1'), inputContext);
 assert.deepStrictEqual(wheel, [[0, 18]], 'Nested frames scroll by their own viewport');
-console.log('PASS bundled page scripts: passive media observation, active-player metrics, hit coordinates, disabled controls, frame boundary and frame scrolling (DOM doubles only)');
+console.log('PASS bundled page scripts: passive media observation, active-player metrics, hit coordinates, click-trap skipping, disabled controls, frame boundary and frame scrolling (DOM doubles only)');

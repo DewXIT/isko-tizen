@@ -16,8 +16,22 @@ internal static class PageScripts
     // Remote cursor. FX/FY are the cursor's fraction of the viewport, so device pixel ratio
     // never matters. Same-origin frames and open shadow roots are entered; a cross-origin
     // frame receives nothing, because no public API injects real touch input.
+    // A click trap is a viewport-sized fixed/absolute layer with no content of its own (transparent, or
+    // at an extreme z-index) that swallows the click and opens an ad. The cursor click goes to the element
+    // under it instead. Any failure to inspect an element means "not a trap": clicking normally is the safe default.
     private const string Target = @"const w0=window;let d=document,w=window,x=FX*innerWidth,y=FY*innerHeight,e=null;
-        for(let k=0;k<6;k++){e=d.elementFromPoint(x,y);if(!e)return;
+        const trap=(n,v)=>{try{
+          if(!n.tagName||/^(IFRAME|FRAME|VIDEO|AUDIO|EMBED|OBJECT|CANVAS|HTML|BODY)$/.test(n.tagName))return false;
+          const s=v.getComputedStyle(n);if(s.position!=='fixed'&&s.position!=='absolute')return false;
+          const r=n.getBoundingClientRect();if(r.width<v.innerWidth*.8||r.height<v.innerHeight*.8)return false;
+          if((n.textContent||'').trim()||n.getElementsByTagName('*').length>3||
+            n.querySelector('img,video,canvas,svg,iframe,input,button,audio'))return false;
+          const bg=s.backgroundColor,clear=!bg||bg==='transparent'||/rgba\(.*,\s*0\)$/.test(bg);
+          return(clear&&s.backgroundImage==='none')||Number(s.opacity)<.05||Number(s.zIndex)>=2147483000
+        }catch(_){return false}};
+        const pick=(dd,v,px,py)=>{const l=dd.elementsFromPoint?dd.elementsFromPoint(px,py):[dd.elementFromPoint(px,py)];
+          for(const n of l)if(n&&!trap(n,v))return n;return l[0]||null};
+        for(let k=0;k<6;k++){e=pick(d,w,x,y);if(!e)return;
           while(e.shadowRoot){const i=e.shadowRoot.elementFromPoint(x,y);if(!i||i===e)break;e=i}
           if(e.tagName!=='IFRAME'&&e.tagName!=='FRAME')break;
           let c=null;try{c=e.contentDocument}catch(_){}if(!c||k===5)return;

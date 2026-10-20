@@ -39,6 +39,12 @@ than showing an ad.**
 - Popups: blocked unless the user pressed OK within 2 s **and** the target is on the same site; the target
   still reuses the one view. Listed ad hosts and cross-site targets are always blocked. The site exception
   (menu) is the escape hatch. The native event carries no gesture metadata, so the app supplies its own.
+- Click traps: a viewport-sized fixed/absolute layer with no content of its own (transparent, or at an extreme
+  z-index) can swallow every click and open an ad. The remote cursor click is hit-tested with
+  `elementsFromPoint` and skips such a layer, so the first press reaches the element under it. Layers with
+  text, images, controls or an opaque background (consent dialogs, real modals) are never skipped, and any
+  inspection failure means an ordinary click. Same-origin frames only; the `click-trap` fixture section
+  reproduces the pattern. Checked with DOM doubles, not on a TV.
 - Every blocked request increments a per-rule counter. Telemetry reports rule ids (list line numbers) and
   counts only, which locates a rule that broke a page without logging any URL.
 
