@@ -12,6 +12,8 @@ internal class PageEngine : IDisposable
     public virtual void Loaded(string url) { }
     public virtual void Detach(WebView view) { }
     public virtual bool Back() => false;
+    // The user pressed OK on the page: the only gesture signal the native popup event lacks.
+    public virtual void UserInput() { }
     public virtual void ToggleProtection() { }
     public virtual void ToggleException() { }
     public virtual void ToggleFixture() { }

@@ -25,6 +25,26 @@ App persistence accepts only safe HTTP(S) origins and excludes user-info, paths,
 queries and fragments. Telemetry never includes callback URLs, cookie/header data,
 exception messages or page text. Websites still have platform-managed storage.
 
+## Rule engine (source-level, not yet verified on a TV)
+
+`FilterSet` parses a small original rule language (`||host^`, `||host/path*`, `@@` exceptions,
+`$third-party`, simple `##selector` cosmetics). Unknown syntax is rejected, never guessed. The bundled
+`StarterRules` list contains hosts of well-known ad networks only. Design rule: **breaking the page is worse
+than showing an ad.**
+
+- A request to the page's own site is never blocked, so a page's launcher and player scripts keep working.
+  Site comparison is a heuristic without a public-suffix list; uncertain cases count as the same site.
+- Bare TLD/public-suffix hosts, regex rules, request-type options and tag-only or player-like cosmetic
+  selectors are rejected at parse time. The native interceptor reports only a URL, so type options cannot be honoured.
+- Popups: blocked unless the user pressed OK within 2 s **and** the target is on the same site; the target
+  still reuses the one view. Listed ad hosts and cross-site targets are always blocked. The site exception
+  (menu) is the escape hatch. The native event carries no gesture metadata, so the app supplies its own.
+- Every blocked request increments a per-rule counter. Telemetry reports rule ids (list line numbers) and
+  counts only, which locates a rule that broke a page without logging any URL.
+
+Request, popup and cosmetic behavior is covered by portable policy tests only. Whether the native interceptor
+blocks, and how the rules affect real pages, memory and playback, needs a TV session.
+
 The original exact-host rules are pubads.g.doubleclick.net and
 pagead2.googlesyndication.com. An optional /ad-probe rule is for controlled fixtures.
 These rules are not a complete ad blocker, EasyList or a service-specific filter.

@@ -77,7 +77,70 @@ internal static class Program
         native = new FakeRequest("https://pubads.g.doubleclick.net/ad");
         RequestCompletion.Apply(native, lab, site);
         Check(native.Calls == 1 && !native.Block, "protection off reaches native continuation");
+        FilterRuleTests();
         Console.WriteLine("PASS: " + count + " protection assertions (pure policy only, not Tizen integration)");
+    }
+    static void FilterRuleTests()
+    {
+        const string page = "https://watch.example.org/live";
+        var f = FilterSet.Parse(string.Join("\n", new[] {
+            "! comment", "", "||ads.example.net^$third-party", "||tracker.example.com/pixel*", "@@||ads.example.net/allowed^",
+            "||cdn.example.co.uk/banners/", "||bad.example\\.org^", "||com^", "||co.uk^", "||x.example.net^$script", "/ads/*",
+            "##.adsbygoogle", "watch.example.org###sponsor", "##div", "##.video-player", "##.a{b}", "##.x:has(.y)" }));
+        Check(f.BlockRuleCount == 3 && f.ExceptionRuleCount == 1, "rule counts");
+        Check(f.RejectedLineCount >= 7, "regex, bare TLD, unknown option, bare pattern and unsafe selectors rejected");
+        Check(f.CosmeticRuleCount == 2, "only safe selectors accepted");
+        Check(f.Match(page, "https://ads.example.net/x.js").Blocked, "host rule blocks");
+        Check(f.Match(page, "https://a.b.ads.example.net/x.js").Blocked, "host rule covers subdomains");
+        Check(!f.Match(page, "https://notads.example.net/x.js").Blocked, "host rule is label-bound");
+        Check(f.Match(page, "https://ads.example.net/allowed/x.js").Excepted && !f.Match(page, "https://ads.example.net/allowed/x.js").Blocked, "exception wins");
+        Check(f.Match(page, "https://ads.example.net/allowed/x.js").RuleId == 5, "exception reports its line number");
+        Check(f.Match(page, "https://ads.example.net/other").RuleId == 3, "block reports its line number");
+        Check(f.Match(page, "https://tracker.example.com/pixel.gif?x=1").Blocked, "path prefix rule blocks");
+        Check(!f.Match(page, "https://tracker.example.com/app.js").Blocked, "path rule does not block other paths");
+        Check(f.Match(page, "https://cdn.example.co.uk/banners/1.png").Blocked, "two-part suffix host rule accepted");
+        Check(!f.Match("https://ads.example.net/", "https://ads.example.net/x.js").Blocked, "same-host request never blocked");
+        Check(!f.Match("https://www.example.net/", "https://ads.example.net/x.js").Blocked, "same-site request never blocked");
+        Check(!f.Match("https://shop.example.co.uk/", "https://cdn.example.co.uk/banners/1.png").Blocked, "same-site under two-part suffix never blocked");
+        Check(f.Match("https://other.co.uk/", "https://cdn.example.co.uk/banners/1.png").Blocked, "different site under two-part suffix blocked");
+        Check(f.Match("", "https://ads.example.net/x.js").Blocked, "unknown page treated as third-party for listed hosts");
+        Check(!f.Match(page, "ftp://ads.example.net/x").Blocked && !f.Match(page, "not a url").Blocked, "non-http requests ignored");
+        Check(f.Match(page, "https://ADS.Example.NET/X").Blocked, "host case-insensitive");
+        var hits = f.TopHits(5);
+        Check(hits.Count >= 1 && hits[0].RuleId == 3 && hits[0].Count >= 3, "hit counters report rule line numbers only");
+        Check(FilterSet.GlobPrefix("/a/*/c^", "/a/b/c") && FilterSet.GlobPrefix("/a/*/c^", "/a/x/y/c?q=1") && !FilterSet.GlobPrefix("/a/*/c^", "/a/b/cd"), "glob with separator");
+        Check(FilterSet.GlobPrefix("/Ads/", "/ads/x"), "glob case-insensitive prefix");
+        var css = f.BuildCosmeticCss(page);
+        Check(css != null && css.Contains(".adsbygoogle") && css.Contains("#sponsor") && css.EndsWith("{display:none!important}"), "cosmetic css for matching host");
+        Check(!f.BuildCosmeticCss("https://other.example.org/").Contains("#sponsor"), "host cosmetic rule is host-scoped");
+        Check(f.BuildCosmeticCss("https://www.watch.example.org/").Contains("#sponsor"), "host cosmetic rule covers subdomains");
+        Check(!f.BuildCosmeticCss("https://notwatch.example.org/").Contains("#sponsor"), "host cosmetic rule is label-bound");
+
+        var starter = FilterSet.Parse(StarterRules.Text);
+        Check(starter.RejectedLineCount == 0 && starter.BlockRuleCount >= 25, "starter list parses with no rejected lines");
+        Check(starter.Match(page, "https://pubads.g.doubleclick.net/gampad/ads").Blocked, "starter blocks ad network");
+        Check(!starter.Match("https://doubleclick.net/", "https://pubads.g.doubleclick.net/x").Blocked, "starter never blocks the page's own site");
+        Check(!starter.Match(page, "https://watch.example.org/player.js").Blocked && !starter.Match(page, "https://cdn.example.com/hls.js").Blocked, "starter leaves first-party and ordinary hosts alone");
+
+        var p = new ProtectionPolicy();
+        p.SetFilters(starter);
+        Check(p.NeedsRequestInterception(page), "filter rules need native interception");
+        Check(!p.EvaluateRequest(page, "https://exoclick.com/ad.js", true).Allowed, "policy blocks listed request");
+        Check(p.EvaluateRequest(page, "https://watch.example.org/app.js", true).Allowed, "policy allows first-party request");
+        Check(!p.EvaluateNavigation(new NavigationRequest(page, "https://popads.net/x", NavigationKind.UserLink, true)).Allowed, "navigation to listed ad host blocked");
+        Check(p.EvaluatePopup(page, "https://watch.example.org/player", true).Allowed, "same-site popup after input allowed");
+        Check(!p.EvaluatePopup(page, "https://watch.example.org/player", false).Allowed, "popup without input blocked");
+        Check(!p.EvaluatePopup(page, "https://popads.net/x", true).Allowed, "listed popup blocked even after input");
+        Check(!p.EvaluatePopup(page, "https://unlisted.example.net/x", true).Allowed, "cross-site popup blocked after input");
+        Check(!p.EvaluatePopup(page, "javascript:alert(1)", true).Allowed, "unsafe popup target blocked");
+        Check(p.GetCosmeticScript(page).Contains(".adsbygoogle") && !p.GetCosmeticScript(page).Contains("'.") , "cosmetic script embeds starter selectors safely");
+        p.SetHostException("watch.example.org", true);
+        Check(p.EvaluateRequest(page, "https://exoclick.com/ad.js", true).Allowed && p.EvaluatePopup(page, "https://popads.net/x", false).Allowed, "site exception disables filter rules and popup policy");
+        Check(!p.NeedsRequestInterception(page), "exception detaches interceptor for filter rules");
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        var q = new ProtectionPolicy(); q.SetFilters(starter);
+        for (int i = 0; i < 20000; i++) q.EvaluateRequest(page, "https://cdn" + (i % 50) + ".example.com/a/b/c" + i + ".js?x=1", true);
+        Check(sw.ElapsedMilliseconds < 2000, "20000 lookups complete quickly (sanity, not a TV benchmark)");
     }
     sealed class FakeRequest : IRequestCompletion
     {

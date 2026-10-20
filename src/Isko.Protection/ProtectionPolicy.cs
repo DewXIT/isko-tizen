@@ -47,9 +47,11 @@ namespace Isko.Protection
         private static readonly PolicyDecision RequestOutside = new PolicyDecision(true, "request-outside-http-rule-scope");
         private static readonly PolicyDecision RequestHostBlocked = new PolicyDecision(false, "exact-ad-host-rule");
         private static readonly PolicyDecision RequestPathBlocked = new PolicyDecision(false, "exact-host-path-rule");
+        private static readonly PolicyDecision RequestFilterBlocked = new PolicyDecision(false, "filter-list-rule");
         private static readonly PolicyDecision RequestAllowed = new PolicyDecision(true, "no-matching-rule");
         private readonly HashSet<string> exceptions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private readonly List<RequestRule> requestRules = new List<RequestRule>();
+        private FilterSet filters = FilterSet.Empty;
         private readonly HashSet<string> requestHosts = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         public bool Enabled { get; set; } = true;
         public void SetHostException(string host, bool exempt)
@@ -57,11 +59,14 @@ namespace Isko.Protection
         public void AddRequestRule(RequestRule rule)
         { if (rule == null) throw new ArgumentNullException("rule"); requestRules.Add(rule); }
         public void AddRequestHost(string host) { requestHosts.Add(UrlSafety.NormalizeHost(host)); }
+        // Set before the policy is published; a published policy is never mutated.
+        public void SetFilters(FilterSet set) { filters = set ?? FilterSet.Empty; }
+        public FilterSet Filters { get { return filters; } }
         private bool Exempt(string url)
         { Uri uri; return exceptions.Count != 0 && UrlSafety.TryHttpUri(url, out uri) && exceptions.Contains(uri.IdnHost); }
 
         public bool NeedsRequestInterception(string currentUrl) =>
-            Enabled && (requestHosts.Count != 0 || requestRules.Count != 0) && !Exempt(currentUrl);
+            Enabled && (requestHosts.Count != 0 || requestRules.Count != 0 || filters.HasRequestRules) && !Exempt(currentUrl);
 
         public PolicyDecision EvaluatePopup(string targetUrl)
         { return EvaluatePopup(null, targetUrl); }
@@ -72,13 +77,30 @@ namespace Isko.Protection
             return new PolicyDecision(false, "new-window-blocked");
         }
 
+        // Popup decision with the app's own knowledge of recent user input (the native event has no gesture
+        // metadata). Any accepted target still reuses the single view, so only same-site targets are allowed:
+        // a cross-site window opened by a page would replace the page the user is watching.
+        public PolicyDecision EvaluatePopup(string currentUrl, string targetUrl, bool recentUserInput)
+        {
+            if (!Enabled || Exempt(currentUrl)) return new PolicyDecision(true, "protection-disabled-or-site-exempt");
+            Uri target, current;
+            if (!UrlSafety.TryHttpUri(targetUrl, out target)) return new PolicyDecision(false, "unsafe-or-unsupported-url");
+            if (requestHosts.Contains(target.IdnHost) || filters.Match(currentUrl, targetUrl).Blocked)
+                return new PolicyDecision(false, "ad-host-popup");
+            if (!recentUserInput) return new PolicyDecision(false, "popup-without-recent-user-input");
+            if (UrlSafety.TryHttpUri(currentUrl, out current) && FilterSet.SameSite(current.IdnHost, target.IdnHost))
+                return new PolicyDecision(true, "same-site-popup-after-user-input");
+            return new PolicyDecision(false, "cross-site-popup-blocked");
+        }
+
         public PolicyDecision EvaluateNavigation(NavigationRequest request)
         {
             if (request == null) throw new ArgumentNullException("request");
             Uri target;
             if (!UrlSafety.TryHttpUri(request.TargetUrl, out target)) return new PolicyDecision(false, "unsafe-or-unsupported-url");
             if (!Enabled || Exempt(request.CurrentUrl)) return new PolicyDecision(true, "protection-disabled-or-site-exempt");
-            if (requestHosts.Contains(target.IdnHost)) return new PolicyDecision(false, "exact-ad-host-navigation");
+            if (requestHosts.Contains(target.IdnHost) || filters.Match(request.CurrentUrl, request.TargetUrl).Blocked)
+                return new PolicyDecision(false, "exact-ad-host-navigation");
             Uri current;
             bool crossOrigin = UrlSafety.TryHttpUri(request.CurrentUrl, out current) &&
                 (current.Scheme != target.Scheme || current.IdnHost != target.IdnHost || current.Port != target.Port);
@@ -99,13 +121,18 @@ namespace Isko.Protection
             if (!UrlSafety.TryHttpUri(url, out uri)) return RequestOutside;
             if (requestHosts.Contains(uri.IdnHost)) return RequestHostBlocked;
             foreach (var rule in requestRules) if (rule.Matches(uri)) return RequestPathBlocked;
+            if (filters.Match(currentUrl, url).Blocked) return RequestFilterBlocked;
             return RequestAllowed;
         }
 
         public string GetCosmeticScript(string url)
         {
             if (!Enabled || Exempt(url)) return "(function(){var s=document.getElementById('isko-cosmetic-v1');if(s)s.remove();})();";
-            return "(function(){if(document.getElementById('isko-cosmetic-v1'))return;var s=document.createElement('style');s.id='isko-cosmetic-v1';s.textContent='[data-isko-ad]{display:none!important}';(document.head||document.documentElement).appendChild(s);})();";
+            string css = "[data-isko-ad]{display:none!important}";
+            string extra = filters.BuildCosmeticCss(url);
+            if (extra != null) css += extra;
+            // Selectors are validated at parse time: no quote or backslash that could end the JS string.
+            return "(function(){if(document.getElementById('isko-cosmetic-v1'))return;var s=document.createElement('style');s.id='isko-cosmetic-v1';s.textContent='" + css + "';(document.head||document.documentElement).appendChild(s);})();";
         }
     }
 }

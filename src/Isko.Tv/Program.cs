@@ -472,7 +472,7 @@ internal sealed class Program : NUIApplication
         var now = clock.ElapsedMilliseconds;
         var fx = cursor.X / PageCursor.Width; var fy = cursor.Y / PageCursor.Height;
         if (key is "Return" or "KP_Enter") {
-            if (cursor.Activate(now)) { pageInput.Click(fx, fy); DispatchPageInput(); metrics.Event("cursor-click"); }
+            if (cursor.Activate(now)) { engine.UserInput(); pageInput.Click(fx, fy); DispatchPageInput(); metrics.Event("cursor-click"); }
             UpdatePointer(); return true;
         }
         var dx = key == "Left" ? -1 : key == "Right" ? 1 : 0;

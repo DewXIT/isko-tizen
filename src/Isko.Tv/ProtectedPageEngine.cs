@@ -26,6 +26,9 @@ internal sealed class ProtectedPageEngine : PageEngine
     private bool enabled = true, fixture, mediaPending, backUnavailable, requestIntercepting, requestHookFailed;
     private long backDeadline, sampleAt;
     private WebContext.HttpRequestInterceptedCallback? requestCallback;
+    private static readonly FilterSet StarterFilters = FilterSet.Parse(StarterRules.Text);
+    private const long GestureWindowMs = 2000;
+    private long lastInputAt = -GestureWindowMs - 1;
 
     public override string Status => "Ochrona " + (enabled ? "włączona" : "wyłączona") +
         (HasException() ? " · wyjątek dla tej strony" : "") + (fixture ? " · test /ad-probe wł." : "") +
@@ -76,8 +79,7 @@ internal sealed class ProtectedPageEngine : PageEngine
     private void Rebuild()
     {
         var next = new ProtectionPolicy { Enabled = enabled };
-        next.AddRequestHost("pubads.g.doubleclick.net");
-        next.AddRequestHost("pagead2.googlesyndication.com");
+        next.SetFilters(StarterFilters);
         foreach (var host in exceptions) next.SetHostException(host, true);
         if (fixture && Uri.TryCreate(Volatile.Read(ref site), UriKind.Absolute, out var uri) &&
             (uri.Scheme == "http" || uri.Scheme == "https")) next.AddRequestRule(new RequestRule(uri.IdnHost, "/ad-probe"));
@@ -100,6 +102,7 @@ internal sealed class ProtectedPageEngine : PageEngine
             metrics.RequestBlocking = needed ? "experimental-hook-unverified" : "disabled-or-site-exempt";
         } catch { requestHookFailed = true; metrics.RequestBlocking = "hook-toggle-failed"; metrics.Event("request-hook-toggle-failed"); }
     }
+    public override void UserInput() => Volatile.Write(ref lastInputAt, clock.ElapsedMilliseconds);
     public override void ToggleProtection() { enabled = !enabled; Changed(); }
     public override void ToggleFixture() { fixture = !fixture; Changed(); }
     public override void ToggleException()
@@ -139,7 +142,8 @@ internal sealed class ProtectedPageEngine : PageEngine
     {
         var maker = args.PolicyDecisionMaker;
         var target = maker.Url;
-        var allowed = Volatile.Read(ref policy).EvaluatePopup(Volatile.Read(ref site), target).Allowed;
+        var recentInput = clock.ElapsedMilliseconds - Volatile.Read(ref lastInputAt) <= GestureWindowMs;
+        var allowed = Volatile.Read(ref policy).EvaluatePopup(Volatile.Read(ref site), target, recentInput).Allowed;
         // Never create another view. Even allowed targets reuse the one owned view.
         var ignored = maker.Ignore();
         if (!ignored) { metrics.Event("lab-popup-cancel-failed"); return; }
@@ -217,6 +221,8 @@ internal sealed class ProtectedPageEngine : PageEngine
             // A missing JS response must not accumulate one native callback per interval.
             mediaPending = true;
             sampleAt = clock.ElapsedMilliseconds + 30000;
+            // Rule ids are line numbers of the bundled list; no URL leaves the policy.
+            foreach (var hit in Volatile.Read(ref policy).Filters.TopHits(5)) metrics.Event("rule-hit-" + hit.RuleId, hit.Count);
             Evaluate(PageScripts.ReadMedia, result => {
                 mediaPending = false;
                 try { metrics.Media(result); } catch { metrics.Event("lab-media-sample-invalid"); }
