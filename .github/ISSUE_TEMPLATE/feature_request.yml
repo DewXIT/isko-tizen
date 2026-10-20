@@ -1,0 +1,31 @@
+name: Feature proposal
+description: Suggest an improvement or discuss a contribution.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Check the [roadmap](https://github.com/DewXIT/isko-tizen/blob/main/docs/roadmap.md)
+        and existing issues first. English and Polish are welcome. Keep personal,
+        device and network details out of the proposal.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem should this solve?
+      description: Describe a concrete use case and who benefits.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior and alternatives
+      description: Explain the user experience and any alternatives considered.
+    validations:
+      required: true
+  - type: textarea
+    id: contribution
+    attributes:
+      label: Would you like to help?
+      description: Optional ideas for implementation, testing, documentation or translation.
+    validations:
+      required: false

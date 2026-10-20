@@ -1,0 +1,36 @@
+# Roadmap
+
+Isko is an early alpha targeting Tizen 9 / NUI WebView. Priorities below describe
+work to investigate and verify, not promised features or delivery dates.
+
+## First priorities
+
+| Area | Next useful outcome | Evidence needed |
+| --- | --- | --- |
+| Video | Explain audio without visible video/loader and the effect of each video path. | Controlled fixture, native observations and comparison with the system browser. |
+| Remote input | Reliable address submission, pointer clicks and return to browser controls. | IME and key behavior on real remotes; trusted-input and frame limits documented. |
+| Performance | Identify costly input dispatch, page work and native view overhead. | Reproducible measurements with protection on/off and bounded input load. |
+| Lifecycle | Safe native callbacks and cleanup across close, hide and reopen. | Failure cases, repeated cycles and long playback/memory observations. |
+| Protection | Establish what is blocked and what continues to work. | Positive/negative controls for requests, popups, navigation and frames. |
+
+Native work requires an explicitly authorized TV session using the tester's own
+private configuration. Portable tests alone cannot close these items.
+
+## Ways to help without a TV
+
+- Improve setup instructions and explain toolchain failures using redacted examples.
+- Plan an English/Polish localization approach; current UI strings are primarily Polish.
+- Improve fixture scenarios for nested frames, fullscreen and late callbacks.
+- Review policy edge cases and add tests for concrete failures.
+- Review the public-data gate and packaging helper with synthetic inputs.
+
+Discuss larger changes in [Issues](https://github.com/DewXIT/isko-tizen/issues/new/choose).
+See [CONTRIBUTING.md](../CONTRIBUTING.md) for the workflow and
+[testing.md](testing.md) for what has actually been verified.
+
+## Alpha release policy
+
+Initial public source snapshot: **v0.1.0-alpha.1**. Alpha releases are source-only.
+Users build and sign for their own TV; no shared certificate or device-specific
+TPK is distributed. Future stable releases need a documented compatibility scope,
+repeatable installation and device evidence for core input/playback/lifecycle behavior.

@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Installation and setup
+    url: https://github.com/DewXIT/isko-tizen/blob/main/docs/install.md
+    about: Start here to build and sign with your own TV configuration.
+  - name: Report a security vulnerability privately
+    url: https://github.com/DewXIT/isko-tizen/security/advisories/new
+    about: Do not disclose exploitable details or private data in public issues.

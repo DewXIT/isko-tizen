@@ -1,0 +1,60 @@
+name: Bug report
+description: Report a reproducible browser, playback, remote-input or setup problem.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        English and Polish are welcome. This is early alpha software.
+        Do not share local configuration, certificates, signed packages, device IDs,
+        private network addresses, cookies or tokens. Redact screenshots and logs.
+        Security issue? Use [private reporting](https://github.com/DewXIT/isko-tizen/security/advisories/new).
+  - type: input
+    id: version
+    attributes:
+      label: Commit or release tag
+      placeholder: v0.1.0-alpha.1 or a commit SHA
+    validations:
+      required: true
+  - type: dropdown
+    id: environment
+    attributes:
+      label: Where did the problem occur?
+      options:
+        - Real TV
+        - Local build or packaging
+        - Portable test or host fixture
+    validations:
+      required: true
+  - type: textarea
+    id: versions
+    attributes:
+      label: Relevant platform or tool versions
+      description: Tizen version or .NET/Node/CLI versions. A general TV model is optional; no serial, MAC, DUID, IP or local paths.
+    validations:
+      required: false
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Use a public site origin or controlled fixture. Omit account names, private URLs and query strings.
+      placeholder: |
+        1. Open ...
+        2. Press ...
+        3. Observe ...
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Expected and actual behavior
+      description: For video, distinguish audio, visible frames, loader, fullscreen and whether the app stays open. For performance, describe the delay and comparison.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Optional redacted evidence
+      description: Minimal relevant error or measurements only. Review images for account and network data; do not attach raw diagnostic dumps.
+    validations:
+      required: false
