@@ -1,0 +1,121 @@
+--- a/src/Isko.Tv/Program.cs
++++ b/src/Isko.Tv/Program.cs
+@@ -846,10 +846,107 @@
+             page.Current.Position = new Position(0, 0);
+             page.Current.Size = new Size(size.Width, size.Height);
+         }
++    }
++    // TEMP-HARNESS: unattended media-state run on an arbitrary page; results go to the fixture server (app-side HTTP).
++    private static readonly System.Net.Http.HttpClient reportHttp = new();
++    private const string ReportBase = "__REPORT_BASE__";
++    private readonly List<(long At, Action Run)> harness = new(); private bool harnessPlanned; private string harnessRun = "";
++    private static string Ascii(string s) { var b = new System.Text.StringBuilder(); foreach (var c in s) if (c >= 0x20 && c <= 0x7e && c != '"' && c != '\\') b.Append(c); return b.Length > 190 ? b.ToString(0, 190) : b.ToString(); }
++    private void Report(string name, string detail)
++    {
++        var url = ReportBase + "/api/event?run=" + harnessRun + "&name=" + name + "&d=" + Uri.EscapeDataString(Ascii(detail));
++        _ = Task.Run(async () => { try { await reportHttp.GetAsync(url); } catch { } });
+     }
++    private const string SampleJs = @"(()=>{const vs=[...document.querySelectorAll('video')].map(v=>{const s=getComputedStyle(v);return [s.visibility[0],v.offsetWidth+'x'+v.offsetHeight,v.paused?'P':'p',v.readyState,Math.round(v.currentTime),v.videoWidth,v.muted?'M':'m',(v.currentSrc||v.src||'').slice(0,5)].join(',')});
++        const ads=[...document.querySelectorAll('iframe')].filter(f=>/doubleclick|googlesyndication|imasdk/.test(f.src)).length;
++        const v=document.querySelector('video');const q=v&&v.getVideoPlaybackQuality&&v.getVideoPlaybackQuality();
++        return vs.join(';')+'|ifr'+ads+'|df'+(q?q.droppedVideoFrames+'/'+q.totalVideoFrames:'-')+'|sw'+(window.__iskoSwept||0)})()";
++    private void HSample(string label) { try { page.Current?.EvaluateJavaScript(SampleJs, r => Report(label, r)); } catch { } }
++    private void HEval(string js) { try { page.Current?.EvaluateJavaScript(js); } catch { } }
++    private const string CapsJs = @"(()=>{const M=typeof MediaSource!=='undefined'?MediaSource:null,t=(x)=>M&&M.isTypeSupported?(M.isTypeSupported(x)?1:0):'-',v=document.createElement('video'),c=(x)=>v.canPlayType(x)||'no';
++        const cv=/Chrome\/(\d+)/.exec(navigator.userAgent);
++        return ['ms'+(M?1:0),'mp4avc'+t('video/mp4; codecs=""avc1.64001f,mp4a.40.2""'),'ts'+t('video/mp2t; codecs=""avc1.64001f,mp4a.40.2""'),'vp9'+t('video/webm; codecs=""vp9""'),'wasm'+(typeof WebAssembly!=='undefined'?1:0),'wk'+(typeof Worker!=='undefined'?1:0),'sab'+(typeof SharedArrayBuffer!=='undefined'?1:0),'cr'+(cv?cv[1]:'?'),'hls:'+c('application/vnd.apple.mpegurl'),'h264:'+c('video/mp4; codecs=""avc1.64001f""'),'mmse'+(typeof ManagedMediaSource!=='undefined'?1:0)].join(' ')})()";
++    private static string ProbeJs(string id, string src) => "(()=>{const v=document.createElement('video');v.id='" + id + "';v.muted=true;v.playsInline=true;v.style.cssText='position:fixed;left:20px;top:20px;width:640px;height:360px;z-index:99;background:#000';v.src='" + src + "';"
++        + "['loadedmetadata','canplay','playing','error','stalled','waiting','emptied'].forEach(e=>v.addEventListener(e,()=>{window.__pv_" + id + "=(window.__pv_" + id + "||'')+e+(e==='error'&&v.error?':'+v.error.code:'')+','}));document.body.appendChild(v);v.play().catch(e=>{window.__pv_" + id + "=(window.__pv_" + id + "||'')+'rej:'+e.name+','})})()";
++    private static string AudioProbeJs(string id, string src) => ProbeJs(id, src).Replace("createElement('video')", "createElement('audio')").Replace("v.style.cssText='position:fixed;left:20px;top:20px;width:640px;height:360px;z-index:99;background:#000';", "");
++    private static string StateJs(string id) => "(()=>{const v=document.getElementById('" + id + "');if(!v)return 'none';const q=v.getVideoPlaybackQuality&&v.getVideoPlaybackQuality();return [window.__pv_" + id + "||'','rs'+v.readyState,'ns'+v.networkState,'t'+Math.round(v.currentTime*10)/10,'vw'+v.videoWidth,v.error?'err'+v.error.code:'ok',v.paused?'P':'p',q?q.droppedVideoFrames+'/'+q.totalVideoFrames:'-'].join(' ')})()";
++    private void HState(string label, string id) { try { page.Current?.EvaluateJavaScript(StateJs(id), r => Report(label, r)); } catch { } }
++    private const string MseJs = @"(async()=>{const v=document.createElement('video');v.id='pm';v.muted=true;v.playsInline=true;v.style.cssText='position:fixed;left:20px;top:20px;width:640px;height:360px;z-index:99;background:#000';document.body.appendChild(v);
++        const log=e=>{window.__pv_pm=(window.__pv_pm||'')+e+','};
++        ['loadedmetadata','canplay','playing','error','stalled','waiting'].forEach(e=>v.addEventListener(e,()=>log(e+(e==='error'&&v.error?':'+v.error.code:''))));
++        try{const ms=new MediaSource();v.src=URL.createObjectURL(ms);await new Promise(r=>ms.addEventListener('sourceopen',r,{once:true}));log('open');
++          const sb=ms.addSourceBuffer('video/mp4; codecs=""avc1.4d401f,mp4a.40.2""');
++          const buf=await (await fetch('/media/sample-frag.mp4')).arrayBuffer();log('fetched'+buf.byteLength);
++          await new Promise((res,rej)=>{sb.addEventListener('updateend',res,{once:true});sb.addEventListener('error',()=>rej(new Error('sberr')),{once:true});sb.appendBuffer(buf)});log('appended');
++          try{ms.endOfStream()}catch(e){}
++          await v.play();log('play-ok')}catch(e){log('exc:'+e.name+':'+String(e.message).slice(0,30))}})()";
++    private void HarnessTick()
++    {
++        var now = clock.ElapsedMilliseconds;
++        if (!harnessPlanned && pageLoaded && page.Current != null && currentUrl.Contains("isko_media=")) {
++            harnessPlanned = true;
++            var m = System.Text.RegularExpressions.Regex.Match(currentUrl, "isko_run=([a-z0-9-]{1,24})");
++            harnessRun = m.Success ? m.Groups[1].Value : "media";
++            void At(int s, Action a) { harness.Add((now + s * 1000L, a)); harness.Sort((x, y) => x.At.CompareTo(y.At)); }
++            At(0, () => Report("loaded", "prot=" + (currentUrl.Contains("isko_prot=off") ? "off" : "on")));
++            At(0, () => { try { page.Current?.EvaluateJavaScript(CapsJs, r => Report("caps", r)); } catch { } });
++            if (currentUrl.Contains("isko_media=7")) {
++                At(3, () => HEval(ProbeJs("pg", "/media/sample.mp4")));
++                for (var s = 6; s <= 21; s += 3) { var label = "g" + s.ToString("00"); At(s, () => HState(label, "pg")); }
++                At(24, () => Report("done", "h264-plain"));
++                return;
++            }
++            if (currentUrl.Contains("isko_media=6")) {
++                At(2, () => { var v = page.Current; if (v == null) return; try { v.VideoHoleEnabled = true; Report("videopath", "hole=" + (v.VideoHoleEnabled ? 1 : 0)); } catch { Report("videopath", "unavailable"); } });
++                At(5, () => HEval(ProbeJs("ph", "/media/sample.mp4")));
++                for (var s = 7; s <= 22; s += 3) { var label = "h2" + s.ToString("00"); At(s, () => HState(label, "ph")); }
++                At(25, () => Report("done", "h264-hole"));
++                return;
++            }
++            if (currentUrl.Contains("isko_media=5")) {
++                At(2, () => HEval(AudioProbeJs("pa", "/media/sample.m4a")));
++                for (var s = 4; s <= 10; s += 2) { var label = "au" + s.ToString("00"); At(s, () => HState(label, "pa")); }
++                At(13, () => HEval(ProbeJs("pv", "/media/sample-vp9.webm")));
++                for (var s = 15; s <= 27; s += 3) { var label = "vp" + s.ToString("00"); At(s, () => HState(label, "pv")); }
++                At(30, () => Report("done", "audio+vp9"));
++                return;
++            }
++            if (currentUrl.Contains("isko_media=4")) {
++                At(2, () => HEval(MseJs));
++                for (var s = 5; s <= 26; s += 3) { var label = "pm" + s.ToString("00"); At(s, () => HState(label, "pm")); }
++                At(28, () => Report("done", "mse"));
++                return;
++            }
++            if (currentUrl.Contains("isko_media=3")) {
++                At(2, () => HEval(ProbeJs("pc", "https://download.blender.org/peach/bigbuckbunny_movies/BigBuckBunny_320x180.mp4")));
++                for (var s = 5; s <= 17; s += 3) { var label = "pc" + s.ToString("00"); At(s, () => HState(label, "pc")); }
++                At(19, () => HEval(ProbeJs("pd", "https://devstreaming-cdn.apple.com/videos/streaming/examples/bipbop_4x3/bipbop_4x3_variant.m3u8")));
++                for (var s = 22; s <= 34; s += 3) { var label = "pd" + s.ToString("00"); At(s, () => HState(label, "pd")); }
++                At(36, () => HEval(ProbeJs("pe", "/media/sample.mp4")));
++                for (var s = 39; s <= 48; s += 3) { var label = "pe" + s.ToString("00"); At(s, () => HState(label, "pe")); }
++                At(50, () => Report("done", "videoprobe3"));
++                return;
++            }
++            if (currentUrl.Contains("isko_media=2")) {
++                At(2, () => HEval(ProbeJs("pa", "/media/sample.mp4")));
++                for (var s = 5; s <= 17; s += 3) { var label = "pa" + s.ToString("00"); At(s, () => HState(label, "pa")); }
++                At(19, () => { var v = page.Current; if (v == null) return; try { v.VideoHoleEnabled = !v.VideoHoleEnabled; Report("videopath", "hole=" + (v.VideoHoleEnabled ? 1 : 0)); } catch { Report("videopath", "unavailable"); } });
++                At(21, () => HEval(ProbeJs("pb", "/media/sample.mp4?v=2")));
++                for (var s = 24; s <= 36; s += 3) { var label = "pb" + s.ToString("00"); At(s, () => HState(label, "pb")); }
++                At(38, () => Report("done", "videoprobe"));
++                return;
++            }
++            for (var s = 3; s <= 60; s += 5) { var label = "m" + s.ToString("00"); At(s, () => HSample(label)); }
++            At(62, () => { engine.UserInput(); HEval("window.__fx=.5;window.__fy=.45;" + PageScripts.ClickAtExpr("(window.__fx)", "(window.__fy)")); Report("clicked", "center"); });
++            for (var s = 66; s <= 106; s += 5) { var label = "c" + s.ToString("00"); At(s, () => HSample(label)); }
++            At(110, () => Report("counters", "popups=" + Interlocked.Read(ref metrics.PopupsBlocked) + ",req=" + Interlocked.Read(ref metrics.RequestsBlocked) + ",attempts=" + Interlocked.Read(ref metrics.RequestBlockAttempts) + ",dlBlocked=" + Interlocked.Read(ref metrics.DownloadsBlocked) + ",dlStarted=" + Interlocked.Read(ref metrics.DownloadsStarted)));
++        }
++        while (harness.Count > 0 && harness[0].At <= now) { var run = harness[0].Run; harness.RemoveAt(0); run(); }
++    }
+     private bool Tick(object sender, Tizen.NUI.Timer.TickEventArgs args)
+     {
+-        if (startUrl != null) { var first = startUrl; startUrl = null; Navigate(first); }
++        HarnessTick(); // TEMP-HARNESS
++        if (startUrl != null) { var first = startUrl; startUrl = null; if (first.Contains("isko_prot=off")) engine.ToggleProtection(); Navigate(first); } // TEMP-HARNESS
+         if (toastUntil != 0 && clock.ElapsedMilliseconds >= toastUntil) { toastUntil = 0; Render(); }
+         while (icons.TryTakeReady(out _)) homeStale = true;
+         if (pointerShown && !cursor.Visible(clock.ElapsedMilliseconds)) UpdatePointer();
+--- a/src/Isko.Tv/PageScripts.cs
++++ b/src/Isko.Tv/PageScripts.cs
+@@ -91,6 +91,7 @@
+           if(a){e.preventDefault();e.stopImmediatePropagation()}},true);
+         const c=HTMLAnchorElement.prototype.click;
+         HTMLAnchorElement.prototype.click=function(){if(this.hasAttribute('download'))return;return c.apply(this,arguments)}})()";
++    public static string ClickAtExpr(string fx, string fy) => Click.Replace("FX", fx).Replace("FY", fy); // TEMP-HARNESS
+     private static string Number(float value) => value.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture);
+     public static string ClickAt(float fx, float fy) => Click.Replace("FX", Number(fx)).Replace("FY", Number(fy));
+     public static string ScrollAt(float fx, float fy, float dx, float dy) =>

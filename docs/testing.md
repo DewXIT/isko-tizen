@@ -7,6 +7,23 @@ Compilation, portable C# checks, JS DOM doubles, host HTTP checks, device packag
 and real TV execution are different evidence. No TV test or deployment is performed
 for this initial import. Hardware video/input/protection/lifecycle remain unverified.
 
+## Media decode capability on the TV (2026-10-21)
+
+Unattended probes on the physical TV (a temporary harness, `tools/tv/device-harness-media.patch`, reporting to the
+fixture server from the app side), repeated after a full power cycle of the TV:
+
+- **Audio-only AAC (MP4/M4A) plays**: ready state 4, current time advancing.
+- **VP9/Opus WebM plays** (software decode): video width 640, current time advanced through the clip, process alive.
+- **H.264 does not play** through `<video>`: a local MP4 (main profile), an HTTPS MP4 and an HTTPS HLS stream fail with
+  `MEDIA_ERR_SRC_NOT_SUPPORTED` (error 4, ready state 0), although `canPlayType` answers "probably"/"maybe". Switching
+  the video path (`VideoHoleEnabled`) before loading, and declaring extra media privileges in the manifest, changed
+  nothing. Media Source Extensions with H.264 killed the app process in one run. Protection on or off made no difference.
+- A live-streaming site's player stayed hidden with nothing loaded, identically with protection on and off (7 requests
+  blocked with it on). The earlier "audio plays, picture black or loader" symptom is consistent with this: audio decodes,
+  H.264 video does not.
+- Not established: whether the TV's own hardware decoder can be reached from this WebView at all, or only from the native
+  `Tizen.Multimedia` player. That is the open question for any fix.
+
 ## Request-path cost and lifecycle review (2026-10-20)
 
 Desktop micro-benchmark of the per-request policy evaluation (400,000 mixed first-party, CDN and listed ad-host

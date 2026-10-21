@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const publicDir = path.join(__dirname, 'public');
 const diagnosticsDir = path.resolve(__dirname, '../../src/Isko.Diagnostics');
-const mediaPath = path.join(__dirname, 'media', 'sample.mp4');
+const mediaFiles = { '/media/sample.mp4': path.join(__dirname, 'media', 'sample.mp4'), '/media/sample-frag.mp4': path.join(__dirname, 'media', 'sample-frag.mp4'), '/media/sample.m4a': path.join(__dirname, 'media', 'sample.m4a'), '/media/sample-vp9.webm': path.join(__dirname, 'media', 'sample-vp9.webm') };
 const validRun = value => typeof value === 'string' && /^[a-zA-Z0-9_-]{1,48}$/.test(value);
 
 function createFixtureServer(options = {}) {
@@ -77,7 +77,8 @@ function createFixtureServer(options = {}) {
       if (Object.prototype.hasOwnProperty.call(diagnosticFiles, url.pathname)) {
         return send(res, 200, fs.readFileSync(path.join(diagnosticsDir, diagnosticFiles[url.pathname])), url.pathname.endsWith('.js') ? 'application/javascript' : 'text/html; charset=utf-8');
       }
-      if (url.pathname === '/media/sample.mp4') {
+      if (Object.prototype.hasOwnProperty.call(mediaFiles, url.pathname)) {
+        const mediaPath = mediaFiles[url.pathname];
         if (!fs.existsSync(mediaPath)) return send(res, 404, { error: 'Run node generate-media.js first' });
         const size = fs.statSync(mediaPath).size;
         const range = req.headers.range;
@@ -89,7 +90,7 @@ function createFixtureServer(options = {}) {
           }
           start = Number(match[1]); end = match[2] ? Math.min(Number(match[2]), size - 1) : end;
         }
-        res.writeHead(range ? 206 : 200, { 'Content-Type': 'video/mp4', 'Accept-Ranges': 'bytes', 'Content-Length': end - start + 1, ...(range ? { 'Content-Range': `bytes ${start}-${end}/${size}` } : {}) });
+        res.writeHead(range ? 206 : 200, { 'Content-Type': url.pathname.endsWith('.m4a') ? 'audio/mp4' : url.pathname.endsWith('.webm') ? 'video/webm' : 'video/mp4', 'Accept-Ranges': 'bytes', 'Content-Length': end - start + 1, ...(range ? { 'Content-Range': `bytes ${start}-${end}/${size}` } : {}) });
         const stream = fs.createReadStream(mediaPath, { start, end });
         stream.on('error', () => res.destroy()); res.on('close', () => stream.destroy()); stream.pipe(res); return;
       }
