@@ -44,6 +44,14 @@ internal sealed class Program : NUIApplication
     private NativeVideo? native;
     private bool nativeActive, nativeStarting;
     private string? streamCandidate;
+    private bool windowTransparent;
+    // The last few native-playback steps, host and stage only (never the address), shown under Informacje.
+    private readonly List<string> nativeNotes = new();
+    private void NativeNote(string text)
+    {
+        nativeNotes.Add(DateTime.Now.ToString("HH:mm:ss") + " " + text);
+        while (nativeNotes.Count > 6) nativeNotes.RemoveAt(0);
+    }
     private readonly List<Element> elements = new();
     private readonly Stopwatch clock = Stopwatch.StartNew(), loading = new();
     private static readonly Color Background = Rgb(0x0A, 0x0B, 0x10);
@@ -392,7 +400,7 @@ internal sealed class Program : NUIApplication
                 Item("Wyjątek dla tej strony", "star", () => { engine.ToggleException(); OpenMenu("protection"); });
         } else {
             menuHeading.Text = "Informacje";
-            Note("Isko · Tizen " + platform + "\n\n" + engine.Status, 240);
+            Note("Isko · Tizen " + platform + "\n\n" + engine.Status + (nativeNotes.Count == 0 ? "" : "\n\nOdtwarzanie natywne:\n" + string.Join("\n", nativeNotes)), 240 + 32 * nativeNotes.Count);
             Item("Test blokady żądań", "shield", engine.ToggleFixture);
         }
         Render();
@@ -556,6 +564,7 @@ internal sealed class Program : NUIApplication
     {
         if (nativeActive || nativeStarting || paused || terminating) return;
         streamCandidate = url;
+        NativeNote("wykryto " + Isko.Core.StreamUrls.Describe(url) + (afterUserPress ? " po OK" : " bez OK"));
         metrics.Event("stream-detected", afterUserPress ? 1 : 0);
         // A manifest requested right after the user pressed OK is the stream they chose; a background one only
         // offers itself (previews and thumbnails use manifests too).
@@ -576,16 +585,18 @@ internal sealed class Program : NUIApplication
             if (await Task.WhenAny(cookieTask.Task, Task.Delay(1500)) == cookieTask.Task) cookie = cookieTask.Task.Result?.Trim('"');
             try { view.EvaluateJavaScript(PageScripts.PauseMedia); } catch { }
             var video = new NativeVideo();
-            // Prepare first, with the page still on screen under the "starting" notice; switch the window over only
-            // once the player is ready, so there is no empty frame in between.
-            try { await video.OpenAsync(window, url, cookie, TimeSpan.FromSeconds(20)); } catch { video.Dispose(); throw; }
+            // The window goes transparent before the player is prepared (the order that works on the TV) while the
+            // page stays drawn on top of it; the page is hidden only once the player is ready, so no empty frame shows.
+            window.SetTransparency(true); window.BackgroundColor = Color.Transparent; windowTransparent = true;
+            NativeNote("przygotowanie " + Isko.Core.StreamUrls.Describe(url));
+            try { await video.OpenAsync(window, url, cookie, TimeSpan.FromSeconds(20)); }
+            catch (Exception e) { NativeNote("przygotowanie nieudane: " + e.GetType().Name); video.Dispose(); throw; }
             try {
-                window.SetTransparency(true);
-                window.BackgroundColor = Color.Transparent;
                 nativeActive = true; view.Hide(); view.Focusable = false; cursor.Hide(); Render();
                 video.Start();
-            } catch { video.Dispose(); throw; }
+            } catch (Exception e) { NativeNote("start nieudany: " + e.GetType().Name); video.Dispose(); throw; }
             native = video;
+            NativeNote("gra");
             metrics.Event("native-playback-started");
             NativeToast();
         } catch (Exception) {
@@ -599,13 +610,13 @@ internal sealed class Program : NUIApplication
         var view = page.Current;
         try { native?.Dispose(); } catch { }
         native = null;
+        if (windowTransparent) { windowTransparent = false; try { window.BackgroundColor = Background; window.SetTransparency(false); } catch { } }
         if (nativeActive) {
             nativeActive = false;
-            try { window.BackgroundColor = Background; window.SetTransparency(false); } catch { }
             if (view != null) { view.Show(); view.Focusable = true; FocusManager.Instance.SetCurrentFocusView(view); }
             chrome.CloseAll(); Render();
         }
-        if (message != null) SetStatus(message);
+        if (message != null) { SetStatus(message); NativeNote(message); }
         metrics.Sample("after-native");
     }
 
