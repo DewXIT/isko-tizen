@@ -576,11 +576,13 @@ internal sealed class Program : NUIApplication
             if (await Task.WhenAny(cookieTask.Task, Task.Delay(1500)) == cookieTask.Task) cookie = cookieTask.Task.Result?.Trim('"');
             try { view.EvaluateJavaScript(PageScripts.PauseMedia); } catch { }
             var video = new NativeVideo();
-            window.SetTransparency(true);
-            window.BackgroundColor = Color.Transparent;
-            nativeActive = true; view.Hide(); view.Focusable = false; cursor.Hide(); Render();
+            // Prepare first, with the page still on screen under the "starting" notice; switch the window over only
+            // once the player is ready, so there is no empty frame in between.
+            try { await video.OpenAsync(window, url, cookie, TimeSpan.FromSeconds(20)); } catch { video.Dispose(); throw; }
             try {
-                await video.OpenAsync(window, url, cookie, TimeSpan.FromSeconds(20));
+                window.SetTransparency(true);
+                window.BackgroundColor = Color.Transparent;
+                nativeActive = true; view.Hide(); view.Focusable = false; cursor.Hide(); Render();
                 video.Start();
             } catch { video.Dispose(); throw; }
             native = video;
