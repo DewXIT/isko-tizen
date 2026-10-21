@@ -599,9 +599,11 @@ internal sealed class Program : NUIApplication
             NativeNote("gra");
             metrics.Event("native-playback-started");
             NativeToast();
-        } catch (Exception) {
+        } catch (Exception e) {
             metrics.Event("native-playback-failed");
-            StopNative("Nie udało się odtworzyć transmisji natywnie");
+            // The reason goes on screen: the remote has no Menu key to open the details under Informacje.
+            var last = nativeNotes.Count == 0 ? e.GetType().Name : nativeNotes[nativeNotes.Count - 1];
+            StopNative("Natywne odtwarzanie nie ruszyło · " + (last.Length > 9 && last[2] == ':' ? last.Substring(9) : last));
         } finally { nativeStarting = false; }
     }
 
