@@ -52,6 +52,7 @@ namespace Isko.Protection
             "||therocketlanguages.com^$third-party",
             "||insecure-brief.com^$third-party",
             "||knowacaliforniafarmer.com^$third-party",
+            "||pemsrv.com^$third-party",
         });
     }
 }
