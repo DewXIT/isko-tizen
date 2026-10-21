@@ -1,9 +1,10 @@
 --- a/src/Isko.Tv/Program.cs
 +++ b/src/Isko.Tv/Program.cs
-@@ -846,10 +846,107 @@
+@@ -845,11 +845,151 @@
+         if (page.Current != null) {
              page.Current.Position = new Position(0, 0);
              page.Current.Size = new Size(size.Width, size.Height);
-         }
++        }
 +    }
 +    // TEMP-HARNESS: unattended media-state run on an arbitrary page; results go to the fixture server (app-side HTTP).
 +    private static readonly System.Net.Http.HttpClient reportHttp = new();
@@ -14,7 +15,7 @@
 +    {
 +        var url = ReportBase + "/api/event?run=" + harnessRun + "&name=" + name + "&d=" + Uri.EscapeDataString(Ascii(detail));
 +        _ = Task.Run(async () => { try { await reportHttp.GetAsync(url); } catch { } });
-     }
++    }
 +    private const string SampleJs = @"(()=>{const vs=[...document.querySelectorAll('video')].map(v=>{const s=getComputedStyle(v);return [s.visibility[0],v.offsetWidth+'x'+v.offsetHeight,v.paused?'P':'p',v.readyState,Math.round(v.currentTime),v.videoWidth,v.muted?'M':'m',(v.currentSrc||v.src||'').slice(0,5)].join(',')});
 +        const ads=[...document.querySelectorAll('iframe')].filter(f=>/doubleclick|googlesyndication|imasdk/.test(f.src)).length;
 +        const v=document.querySelector('video');const q=v&&v.getVideoPlaybackQuality&&v.getVideoPlaybackQuality();
@@ -38,6 +39,27 @@
 +          await new Promise((res,rej)=>{sb.addEventListener('updateend',res,{once:true});sb.addEventListener('error',()=>rej(new Error('sberr')),{once:true});sb.appendBuffer(buf)});log('appended');
 +          try{ms.endOfStream()}catch(e){}
 +          await v.play();log('play-ok')}catch(e){log('exc:'+e.name+':'+String(e.message).slice(0,30))}})()";
++    private Tizen.Multimedia.Player? nativePlayer;
++    private async void NativeProbe(string url)
++    {
++        try {
++            Report("native", "start");
++            try { window.SetTransparency(true); } catch { Report("native", "no-transparency-api"); }
++            window.BackgroundColor = Color.Transparent; stage.Hide();
++            var player = nativePlayer = new Tizen.Multimedia.Player();
++            player.ErrorOccurred += (s, e) => Report("native-err", e.Error.ToString());
++            player.PlaybackCompleted += (s, e) => Report("native", "completed");
++            player.Display = new Tizen.Multimedia.Display(window);
++            player.SetSource(new Tizen.Multimedia.MediaUriSource(url));
++            await player.PrepareAsync();
++            Report("native", "prepared state=" + player.State);
++            try { var vp = player.StreamInfo.GetVideoProperties(); Report("native", "video " + vp.Size.Width + "x" + vp.Size.Height + " br=" + vp.BitRate); } catch (Exception e) { Report("native", "novideoinfo:" + e.GetType().Name); }
++            try { Report("native", "codec=" + player.StreamInfo.GetVideoCodec()); } catch { }
++            player.Start();
++            Report("native", "started state=" + player.State);
++        } catch (Exception e) { Report("native-exc", e.GetType().Name + ":" + e.Message); }
++    }
++    private void NativeSample(string label) { try { var p = nativePlayer; if (p != null) Report(label, "pos=" + p.GetPlayPosition() + " state=" + p.State); } catch (Exception e) { Report(label, "exc:" + e.GetType().Name); } }
 +    private void HarnessTick()
 +    {
 +        var now = clock.ElapsedMilliseconds;
@@ -48,6 +70,28 @@
 +            void At(int s, Action a) { harness.Add((now + s * 1000L, a)); harness.Sort((x, y) => x.At.CompareTo(y.At)); }
 +            At(0, () => Report("loaded", "prot=" + (currentUrl.Contains("isko_prot=off") ? "off" : "on")));
 +            At(0, () => { try { page.Current?.EvaluateJavaScript(CapsJs, r => Report("caps", r)); } catch { } });
++            if (currentUrl.Contains("isko_media=10")) {
++                At(1, () => { try { window.SetTransparency(true); } catch { Report("webv", "no-transparency-api"); } window.BackgroundColor = Color.Transparent; stage.Hide(); Report("webv", "window-transparent"); });
++                At(2, () => { var v = page.Current; if (v == null) return; try { v.VideoHoleEnabled = true; Report("videopath", "hole=" + (v.VideoHoleEnabled ? 1 : 0)); } catch { Report("videopath", "unavailable"); } });
++                At(4, () => HEval(ProbeJs("pt", "/media/sample.mp4")));
++                for (var s = 7; s <= 22; s += 3) { var label = "tw" + s.ToString("00"); At(s, () => HState(label, "pt")); }
++                At(25, () => Report("done", "transparent-hole"));
++                return;
++            }
++            if (currentUrl.Contains("isko_media=9")) {
++                At(1, () => ClosePage(false));
++                At(2, () => NativeProbe("https://devstreaming-cdn.apple.com/videos/streaming/examples/bipbop_4x3/bipbop_4x3_variant.m3u8"));
++                for (var s = 6; s <= 30; s += 4) { var label = "nh" + s.ToString("00"); At(s, () => NativeSample(label)); }
++                At(33, () => Report("done", "native-hls"));
++                return;
++            }
++            if (currentUrl.Contains("isko_media=8")) {
++                At(1, () => ClosePage(false));
++                At(2, () => NativeProbe("__REPORT_BASE__/media/sample.mp4"));
++                for (var s = 6; s <= 24; s += 3) { var label = "np" + s.ToString("00"); At(s, () => NativeSample(label)); }
++                At(27, () => Report("done", "native-h264"));
++                return;
++            }
 +            if (currentUrl.Contains("isko_media=7")) {
 +                At(3, () => HEval(ProbeJs("pg", "/media/sample.mp4")));
 +                for (var s = 6; s <= 21; s += 3) { var label = "g" + s.ToString("00"); At(s, () => HState(label, "pg")); }
@@ -98,9 +142,9 @@
 +            At(62, () => { engine.UserInput(); HEval("window.__fx=.5;window.__fy=.45;" + PageScripts.ClickAtExpr("(window.__fx)", "(window.__fy)")); Report("clicked", "center"); });
 +            for (var s = 66; s <= 106; s += 5) { var label = "c" + s.ToString("00"); At(s, () => HSample(label)); }
 +            At(110, () => Report("counters", "popups=" + Interlocked.Read(ref metrics.PopupsBlocked) + ",req=" + Interlocked.Read(ref metrics.RequestsBlocked) + ",attempts=" + Interlocked.Read(ref metrics.RequestBlockAttempts) + ",dlBlocked=" + Interlocked.Read(ref metrics.DownloadsBlocked) + ",dlStarted=" + Interlocked.Read(ref metrics.DownloadsStarted)));
-+        }
+         }
 +        while (harness.Count > 0 && harness[0].At <= now) { var run = harness[0].Run; harness.RemoveAt(0); run(); }
-+    }
+     }
      private bool Tick(object sender, Tizen.NUI.Timer.TickEventArgs args)
      {
 -        if (startUrl != null) { var first = startUrl; startUrl = null; Navigate(first); }

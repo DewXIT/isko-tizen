@@ -21,8 +21,11 @@ fixture server from the app side), repeated after a full power cycle of the TV:
 - A live-streaming site's player stayed hidden with nothing loaded, identically with protection on and off (7 requests
   blocked with it on). The earlier "audio plays, picture black or loader" symptom is consistent with this: audio decodes,
   H.264 video does not.
-- Not established: whether the TV's own hardware decoder can be reached from this WebView at all, or only from the native
-  `Tizen.Multimedia` player. That is the open question for any fix.
+- **The native player decodes it.** `Tizen.Multimedia.Player` with `Display(NUI Window)`, transparent window, shell hidden:
+  the same H.264 MP4 prepared as 1280x720 `h264`, played in real time to the end (12 s, playback-completed, process
+  alive), and an HTTPS HLS stream (H.264) played continuously for 25 s. Only the `internet` privilege was declared. The
+  platform decoder is therefore reachable from the app, but not through the WebView `<video>`: a transparent window plus
+  `VideoHoleEnabled` still gave error 4. Whether the picture was visible on screen was not recorded by the harness.
 
 ## Request-path cost and lifecycle review (2026-10-20)
 
