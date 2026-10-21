@@ -53,6 +53,10 @@ namespace Isko.Protection
             "||insecure-brief.com^$third-party",
             "||knowacaliforniafarmer.com^$third-party",
             "||pemsrv.com^$third-party",
+            "||vast.livejasmin.com^$third-party",
+            "||vcmdiawe.com^$third-party",
+            "||cerdma.com^$third-party",
+            "||chaturbate.com/livecampreview*$third-party",
         });
     }
 }
