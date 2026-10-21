@@ -39,6 +39,11 @@ internal sealed class Program : NUIApplication
     private bool inputTimerRunning, inputUnavailable;
     private long inputDeadline;
     private readonly PageEngine engine = new ProtectedPageEngine();
+    // Native playback: the WebView cannot decode H.264 on this TV, the platform player can. The page stays loaded but
+    // hidden and paused; the stream address comes from the page's own manifest request and stays in memory only.
+    private NativeVideo? native;
+    private bool nativeActive, nativeStarting;
+    private string? streamCandidate;
     private readonly List<Element> elements = new();
     private readonly Stopwatch clock = Stopwatch.StartNew(), loading = new();
     private static readonly Color Background = Rgb(0x0A, 0x0B, 0x10);
@@ -121,6 +126,7 @@ internal sealed class Program : NUIApplication
         } catch { }
         try { if (Information.TryGetValue("http://tizen.org/feature/platform.version", out string value)) platform = value; } catch { }
         BuildBackdrop(); BuildHome(); BuildBarFrame(); BuildMenuFrame(); BuildEdit(); BuildLoading(); BuildCursor(); BuildToast();
+        engine.StreamDetected = OnStreamDetected;
         UpdateHome();
         timer = new Tizen.NUI.Timer(500);
         timer.Tick += Tick; timer.Start();
@@ -358,6 +364,7 @@ internal sealed class Program : NUIApplication
             Item("Ulubione", "star", () => OpenMenu("favorites"));
             Item("Historia", "history", () => OpenMenu("history"));
             Item("Ochrona witryny", "shield", () => OpenMenu("protection"));
+            if (page.Current != null && streamCandidate != null) Item("Odtwórz wykrytą transmisję", "info", () => { HideOverlay(); StartNative(streamCandidate); });
             if (page.Current != null) Item("Zmień tryb obrazu wideo", "info", () => { HideOverlay(); ToggleVideoPath(); });
             if (session.History.Count != 0) Item("Wyczyść historię", "trash", () => {
                 session.ClearHistory(); icons.Forget(session.Favorites); UpdateHome(); OpenMenu(); SetStatus("Historia wyczyszczona");
@@ -486,6 +493,7 @@ internal sealed class Program : NUIApplication
     // Submit leaves the address overlay, so a key seen by both handlers is acted on once.
     private void OnWindowKey(object? sender, Tizen.NUI.Window.KeyEventArgs args)
     {
+        if (nativeActive) { if (args.Key.State == Key.StateType.Down) NativeKey(args.Key.KeyPressedName); return; }
         if (chrome.Overlay != ChromeOverlay.Address || args.Key.State != Key.StateType.Down) return;
         if (args.Key.KeyPressedName is "Return" or "KP_Enter" && address.HasFocus()) Submit(address.Text);
     }
@@ -517,7 +525,7 @@ internal sealed class Program : NUIApplication
     }
     private void UpdatePointer()
     {
-        if (chrome.PageInteractive && cursor.Visible(clock.ElapsedMilliseconds)) {
+        if (!nativeActive && chrome.PageInteractive && cursor.Visible(clock.ElapsedMilliseconds)) {
             pointer.Position = new Position(cursor.X - PointerSize * UiIcons.CursorTipX, cursor.Y - PointerSize * UiIcons.CursorTipY);
             pointer.Show(); pointerShown = true;
         } else { pointer.Hide(); pointerShown = false; }
@@ -541,6 +549,85 @@ internal sealed class Program : NUIApplication
             { pageInput.Scroll(cursor.X / PageCursor.Width, cursor.Y / PageCursor.Height,
                 scroll.X / 12f, scroll.Y / 12f); DispatchPageInput(); }
         UpdatePointer(); return true;
+    }
+
+    // ---------- Native playback ----------
+    private void OnStreamDetected(string url, bool afterUserPress)
+    {
+        if (nativeActive || nativeStarting || paused || terminating) return;
+        streamCandidate = url;
+        metrics.Event("stream-detected", afterUserPress ? 1 : 0);
+        // A manifest requested right after the user pressed OK is the stream they chose; a background one only
+        // offers itself (previews and thumbnails use manifests too).
+        if (afterUserPress) StartNative(url);
+        else SetStatus("Wykryto transmisję · Menu → Odtwórz wykrytą transmisję");
+    }
+
+    private async void StartNative(string url)
+    {
+        var view = page.Current;
+        if (nativeActive || nativeStarting || view == null || terminating) return;
+        nativeStarting = true;
+        try {
+            SetStatus("Uruchamiam odtwarzacz…");
+            string? cookie = null;
+            var cookieTask = new TaskCompletionSource<string?>();
+            try { view.EvaluateJavaScript("document.cookie", r => cookieTask.TrySetResult(r)); } catch { cookieTask.TrySetResult(null); }
+            if (await Task.WhenAny(cookieTask.Task, Task.Delay(1500)) == cookieTask.Task) cookie = cookieTask.Task.Result?.Trim('"');
+            try { view.EvaluateJavaScript(PageScripts.PauseMedia); } catch { }
+            var video = new NativeVideo();
+            window.SetTransparency(true);
+            window.BackgroundColor = Color.Transparent;
+            nativeActive = true; view.Hide(); view.Focusable = false; cursor.Hide(); Render();
+            try {
+                await video.OpenAsync(window, url, cookie, TimeSpan.FromSeconds(20));
+                video.Start();
+            } catch { video.Dispose(); throw; }
+            native = video;
+            metrics.Event("native-playback-started");
+            NativeToast();
+        } catch (Exception) {
+            metrics.Event("native-playback-failed");
+            StopNative("Nie udało się odtworzyć transmisji natywnie");
+        } finally { nativeStarting = false; }
+    }
+
+    private void StopNative(string? message = null)
+    {
+        var view = page.Current;
+        try { native?.Dispose(); } catch { }
+        native = null;
+        if (nativeActive) {
+            nativeActive = false;
+            try { window.BackgroundColor = Background; window.SetTransparency(false); } catch { }
+            if (view != null) { view.Show(); view.Focusable = true; FocusManager.Instance.SetCurrentFocusView(view); }
+            chrome.CloseAll(); Render();
+        }
+        if (message != null) SetStatus(message);
+        metrics.Sample("after-native");
+    }
+
+    private void NativeToast()
+    {
+        var video = native;
+        if (video == null) return;
+        string Clock(int ms) { var t = TimeSpan.FromMilliseconds(Math.Max(0, ms)); return t.TotalHours >= 1 ? t.ToString(@"h\:mm\:ss") : t.ToString(@"m\:ss"); }
+        var position = Clock(video.PositionMs);
+        var extent = video.CanSeek ? " / " + Clock(video.DurationMs) : " · na żywo";
+        SetStatus((video.Playing ? "▶ " : "⏸ ") + position + extent + "   OK pauza · ← → ±10 s · Wstecz: strona");
+    }
+
+    private async void NativeKey(string key)
+    {
+        var video = native;
+        if (key is "XF86Back" or "Escape" or "BackSpace" or "XF86Exit" or "XF86AudioStop") { StopNative("Wróciłeś do strony"); return; }
+        if (video == null) return;
+        try {
+            if (key is "Return" or "KP_Enter" or "XF86AudioPlay" or "XF86AudioPause" or "space") video.TogglePause();
+            else if (key is "Left" or "XF86AudioRewind") await video.SeekByAsync(-10000);
+            else if (key is "Right" or "XF86AudioForward") await video.SeekByAsync(10000);
+            NativeToast();
+        } catch { metrics.Event("native-key-failed"); }
     }
 
     private void ToggleVideoPath()
@@ -806,7 +893,7 @@ internal sealed class Program : NUIApplication
     }
 
     // ---------- Visibility, layering and scaling ----------
-    private bool LayerVisible(Layer layer) => layer switch {
+    private bool LayerVisible(Layer layer) => nativeActive ? layer == Layer.Toast && clock.ElapsedMilliseconds < toastUntil : layer switch {
         Layer.Backdrop or Layer.Home or Layer.Hero or Layer.Sites => chrome.Surface == BrowserSurface.Home,
         Layer.Bar or Layer.BarItems => chrome.Overlay == ChromeOverlay.Controls,
         Layer.MenuFrame or Layer.MenuItems => chrome.Overlay == ChromeOverlay.Menu,
@@ -850,6 +937,10 @@ internal sealed class Program : NUIApplication
     private bool Tick(object sender, Tizen.NUI.Timer.TickEventArgs args)
     {
         if (startUrl != null) { var first = startUrl; startUrl = null; Navigate(first); }
+        if (nativeActive && native != null) {
+            if (native.Ended) StopNative("Koniec transmisji");
+            else if (native.Failure != null) { metrics.Event("native-playback-error"); StopNative("Błąd odtwarzacza. Wróciłeś do strony"); }
+        }
         if (toastUntil != 0 && clock.ElapsedMilliseconds >= toastUntil) { toastUntil = 0; Render(); }
         while (icons.TryTakeReady(out _)) homeStale = true;
         if (pointerShown && !cursor.Visible(clock.ElapsedMilliseconds)) UpdatePointer();
@@ -1005,6 +1096,7 @@ internal sealed class Program : NUIApplication
     }
     private bool ClosePage(bool focusHome = true)
     {
+        if (nativeActive) StopNative();
         pageLoaded = false;
         ResetPageInput();
         if (!page.TryClose(view => {

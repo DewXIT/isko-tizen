@@ -24,7 +24,7 @@ To kryteria docelowe. Obecna alpha nie ma jeszcze dowodu ich spełnienia na TV.
 
 - **Płynność:** szybka reakcja na pilot podczas ładowania strony i odtwarzania,
   ograniczona kolejka wejścia, mało pracy na głównym wątku i stabilne użycie pamięci.
-- **Odtwarzanie:** zachowanie odtwarzacza strony, zgodność ramek i fullscreen,
+- **Odtwarzanie:** transmisja wybrana na stronie gra w natywnym odtwarzaczu TV (sprzętowe H.264), zgodność ramek i fullscreen,
   poprawne sprzątanie po zmianie materiału, zamknięciu i ukryciu aplikacji.
 - **Ochrona od pierwszego uruchomienia:** blokowanie reklam, popupów i niechcianych
   przekierowań jako podstawowa część produktu, z prostym wyjątkiem dla witryny.

@@ -42,7 +42,7 @@ const fs = require('fs'), path = require('path'), vm = require('vm');
 new vm.Script(fs.readFileSync(path.join(__dirname, 'public/fixture.js'), 'utf8'));
 const frameScript = /<script>([\s\S]*)<\/script>/.exec(fs.readFileSync(path.join(__dirname, 'public/frame.html'), 'utf8'));
 assert(frameScript, 'frame fixture has a script'); new vm.Script(frameScript[1]);
-for (const id of ['arm-interstitial', 'popup-cross', 'popup-delayed', 'state', 'dl-attr', 'dl-plain', 'dl-script', 'bait-start', 'arm-trap', 'trap-play'])
+for (const id of ['arm-interstitial', 'play-stream', 'popup-cross', 'popup-delayed', 'state', 'dl-attr', 'dl-plain', 'dl-script', 'bait-start', 'arm-trap', 'trap-play'])
   assert(request('/').body.includes('id="' + id + '"'), 'index fixture has #' + id);
 assert(fs.readFileSync(path.join(__dirname, 'public/frame.html'), 'utf8').includes('id="popup-x"'), 'frame fixture has the cross-site popup button');
 assert.strictEqual(request('/api/event?run=test&name=player-click&d=%7B%7D').status, 204);

@@ -51,6 +51,7 @@
       if (--left <= 0) clearInterval(timer);
     }, 1000);
   });
+  bind('play-stream', function () { var xhr = new XMLHttpRequest(); xhr.open('GET', '/media/hls/index.m3u8?run=' + run()); xhr.onload = function () { log('manifest-fetched', { status: xhr.status, bytes: xhr.responseText.length }); }; xhr.onerror = function () { log('manifest-error'); }; xhr.send(); log('stream-requested'); });
   bind('trap-play', function () { log('player-click'); });
   bind('hide', function () { document.getElementById('isko-test-banner').style.display = 'none'; log('cosmetic-control'); });
   bind('show', function () { document.getElementById('isko-test-banner').style.display = ''; });

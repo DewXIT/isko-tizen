@@ -1,6 +1,6 @@
 --- a/src/Isko.Tv/Program.cs
 +++ b/src/Isko.Tv/Program.cs
-@@ -845,11 +845,151 @@
+@@ -932,11 +932,151 @@
          if (page.Current != null) {
              page.Current.Position = new Position(0, 0);
              page.Current.Size = new Size(size.Width, size.Height);
@@ -150,9 +150,9 @@
 -        if (startUrl != null) { var first = startUrl; startUrl = null; Navigate(first); }
 +        HarnessTick(); // TEMP-HARNESS
 +        if (startUrl != null) { var first = startUrl; startUrl = null; if (first.Contains("isko_prot=off")) engine.ToggleProtection(); Navigate(first); } // TEMP-HARNESS
-         if (toastUntil != 0 && clock.ElapsedMilliseconds >= toastUntil) { toastUntil = 0; Render(); }
-         while (icons.TryTakeReady(out _)) homeStale = true;
-         if (pointerShown && !cursor.Visible(clock.ElapsedMilliseconds)) UpdatePointer();
+         if (nativeActive && native != null) {
+             if (native.Ended) StopNative("Koniec transmisji");
+             else if (native.Failure != null) { metrics.Event("native-playback-error"); StopNative("Błąd odtwarzacza. Wróciłeś do strony"); }
 --- a/src/Isko.Tv/PageScripts.cs
 +++ b/src/Isko.Tv/PageScripts.cs
 @@ -91,6 +91,7 @@

@@ -14,4 +14,9 @@ if (frag.status !== 0) process.exit(frag.status === null ? 1 : frag.status);
 const audio = spawnSync('ffmpeg', ['-hide_banner', '-y', '-f', 'lavfi', '-i', 'sine=frequency=440:sample_rate=48000', '-t', '8', '-c:a', 'aac', '-b:a', '96k', path.join(dir, 'sample.m4a')], { stdio: 'inherit' });
 if (audio.status !== 0) process.exit(audio.status === null ? 1 : audio.status);
 const vp9 = spawnSync('ffmpeg', ['-hide_banner', '-y', '-f', 'lavfi', '-i', 'testsrc2=size=640x360:rate=30', '-f', 'lavfi', '-i', 'sine=frequency=440:sample_rate=48000', '-t', '6', '-c:v', 'libvpx-vp9', '-b:v', '600k', '-c:a', 'libopus', path.join(dir, 'sample-vp9.webm')], { stdio: 'inherit' });
-process.exit(vp9.status === null ? 1 : vp9.status);
+if (vp9.status !== 0) process.exit(vp9.status === null ? 1 : vp9.status);
+// A short HLS (H.264/AAC, 4 s segments) so a device run can exercise manifest detection and native playback.
+const hlsDir = path.join(dir, 'hls');
+fs.mkdirSync(hlsDir, { recursive: true });
+const hls = spawnSync('ffmpeg', ['-hide_banner', '-y', '-i', path.join(dir, 'sample.mp4'), '-c', 'copy', '-f', 'hls', '-hls_time', '4', '-hls_playlist_type', 'vod', '-hls_segment_filename', path.join(hlsDir, 'seg%03d.ts'), path.join(hlsDir, 'index.m3u8')], { stdio: 'inherit' });
+process.exit(hls.status === null ? 1 : hls.status);

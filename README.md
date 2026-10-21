@@ -32,8 +32,10 @@ Source snapshots: [releases](https://github.com/DewXIT/isko-tizen/releases) ·
   bounded page-input dispatch to keep repeated keys from growing an unbounded queue.
 - **TV browser shell:** address/search entry, home tiles, favorites, history and
   an on-demand control bar that leaves room for the page.
-- **Website playback:** the original site player, fullscreen hooks and a manual
-  video-path option for compatibility investigation.
+- **Native playback:** the TV's WebView cannot decode H.264, so when a page requests a
+  streaming manifest (HLS or DASH) right after you press OK, Isko plays it with the TV's own
+  hardware player: OK pauses, left/right seek, Back returns to the page. A menu item plays a
+  detected stream manually. See [native playback](docs/native-playback.md).
 - **Default-on protection (early):** a small rule engine with a bundled starter list of
   ad-network hosts, a popup policy based on the user's last remote press, removal of
   full-viewport ad layers and click traps (the remote click goes through them to the page),
@@ -46,7 +48,7 @@ Source snapshots: [releases](https://github.com/DewXIT/isko-tizen/releases) ·
 
 **Early alpha for developers and curious TV owners.** Source builds and portable
 checks pass; native compatibility and playback still need device validation.
-Audio with a black video/loader is an unresolved compatibility issue. Remote input,
+A page's own `<video>` cannot show H.264 on the tested TV (audio and VP9 play); streams are handed to the native player instead, which is verified on a test stream and not yet on real sites. Remote input,
 IME submit, cross-origin players, fullscreen and long sessions are active priorities.
 The current interface is primarily in Polish; localization contributions are welcome.
 

@@ -17,7 +17,11 @@ Read docs/HANDOFF.md and docs/testing.md before changing the project.
   Review each member and update the metadata audit in tests/Isko.Core.Tests.
   Do not use reflection, P/Invoke or copied platform DLLs as workarounds.
 - Keep a single application-owned WebView, origin-only app persistence and numeric,
-  redacted telemetry. Preserve the site's player and normal browser security rules.
+  redacted telemetry. Preserve normal browser security rules.
+- Owner decision (2026-10-21): the WebView cannot decode H.264 on the target TV, while the
+  platform's native player can. A streaming manifest (HLS/DASH) the page requests is therefore
+  played by the native player (docs/native-playback.md). Stream addresses carry tokens: keep them
+  in memory only, never log or persist them. No DRM or paywall bypass.
 - Use the existing .NET/Node checks. Keep SDKs, credentials, pairing material,
   device identifiers, private configuration and generated packages out of Git.
 - Compilation, DOM doubles, host HTTP checks and native TV execution are separate

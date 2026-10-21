@@ -77,6 +77,13 @@ function createFixtureServer(options = {}) {
       if (Object.prototype.hasOwnProperty.call(diagnosticFiles, url.pathname)) {
         return send(res, 200, fs.readFileSync(path.join(diagnosticsDir, diagnosticFiles[url.pathname])), url.pathname.endsWith('.js') ? 'application/javascript' : 'text/html; charset=utf-8');
       }
+      const hlsMatch = /^\/media\/hls\/([A-Za-z0-9._-]{1,64})$/.exec(url.pathname);
+      if (hlsMatch) {
+        const file = path.join(__dirname, 'media', 'hls', hlsMatch[1]);
+        if (!fs.existsSync(file)) return send(res, 404, { error: 'Run node generate-media.js first' });
+        const type = file.endsWith('.m3u8') ? 'application/vnd.apple.mpegurl' : 'video/mp2t';
+        return send(res, 200, fs.readFileSync(file), type);
+      }
       if (Object.prototype.hasOwnProperty.call(mediaFiles, url.pathname)) {
         const mediaPath = mediaFiles[url.pathname];
         if (!fs.existsSync(mediaPath)) return send(res, 404, { error: 'Run node generate-media.js first' });

@@ -67,6 +67,7 @@ internal sealed class ProtectedPageEngine : PageEngine
     {
         Interlocked.Increment(ref generation);
         Interlocked.Exchange(ref popupPending, 0); Interlocked.Exchange(ref popupToastPending, 0);
+        lock (manifestLock) lastManifest = "";
         backDeadline = 0;
         backSequence++;
         mediaPending = false; backUnavailable = false;
@@ -108,7 +109,11 @@ internal sealed class ProtectedPageEngine : PageEngine
         metrics.RequestBlocking = Volatile.Read(ref policy).NeedsRequestInterception(Volatile.Read(ref site))
             ? "hook-unverified" : "disabled-or-site-exempt";
     }
-    public override void UserInput() => Volatile.Write(ref lastInputAt, clock.ElapsedMilliseconds);
+    public override void UserInput()
+    {
+        Volatile.Write(ref lastInputAt, clock.ElapsedMilliseconds);
+        lock (manifestLock) lastManifest = ""; // a new press makes the same stream a fresh candidate again
+    }
     public override void ToggleProtection() { enabled = !enabled; Changed(); }
     public override void ToggleFixture() { fixture = !fixture; Changed(); }
     public override void ToggleException()
@@ -128,17 +133,42 @@ internal sealed class ProtectedPageEngine : PageEngine
     private readonly struct NativeRequest : IRequestCompletion
     {
         private readonly WebHttpRequestInterceptor request;
-        public NativeRequest(WebHttpRequestInterceptor request) => this.request = request;
-        public string Url => request.Url;
+        private readonly string? url;
+        public NativeRequest(WebHttpRequestInterceptor request, string? url) { this.request = request; this.url = url; }
+        // The address was read once by the caller; a failed read surfaces here as the same exception the policy expects.
+        public string Url => url ?? throw new InvalidOperationException();
         public bool Complete(bool block)
         {
             if (!block) { request.Ignore(); return true; }
             return request.SetResponse("HTTP/1.1 403 Forbidden\r\nContent-Type: text/plain\r\nContent-Length: 0\r\nCache-Control: no-store\r\n\r\n", Array.Empty<byte>());
         }
     }
+    private const long StreamGestureWindowMs = 8000;
+    private readonly object manifestLock = new();
+    private string lastManifest = "";
+    private long lastManifestAt;
     private void Intercept(WebHttpRequestInterceptor request)
     {
-        var result = RequestCompletion.Apply(new NativeRequest(request), Volatile.Read(ref policy), Volatile.Read(ref site));
+        string? url = null;
+        try { url = request.Url; } catch { }
+        var result = RequestCompletion.Apply(new NativeRequest(request, url), Volatile.Read(ref policy), Volatile.Read(ref site));
+        // A manifest the policy lets through is a candidate for native playback; repeats (live playlists refresh) are ignored.
+        if (url != null && !result.BlockRequested) {
+            try {
+                if (Isko.Core.StreamUrls.IsManifest(url)) {
+                    var now = clock.ElapsedMilliseconds; bool fresh;
+                    lock (manifestLock) {
+                        fresh = !(url == lastManifest && now - lastManifestAt < 60000);
+                        lastManifest = url; lastManifestAt = now;
+                    }
+                    if (fresh) {
+                        var recent = now - Volatile.Read(ref lastInputAt) <= StreamGestureWindowMs;
+                        var ticket = Volatile.Read(ref generation);
+                        completions.Enqueue(() => { if (view != null && ticket == generation) StreamDetected?.Invoke(url, recent); });
+                    }
+                }
+            } catch { metrics.Event("engine-stream-detect-failed"); }
+        }
         if (result.BlockRequested) {
             Interlocked.Increment(ref metrics.RequestBlockAttempts);
             if (result.Completed) Interlocked.Increment(ref metrics.RequestsBlocked);

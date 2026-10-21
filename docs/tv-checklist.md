@@ -41,3 +41,10 @@ reports its own events to `/api/events?run=...`. `tools/tv/device-harness.patch`
 commit the result) adds a scripted sequence that drives rows 2 to 9 through the app's own click path (script clicks,
 not remote key presses), and reports the app counters to the server. Liveness is checked by re-running
 `tz run --package-id ... --serial ...`: the same pid means the process did not restart.
+
+## Native playback rows
+
+| # | Setup | Action | Pass when |
+| - | ----- | ------ | --------- |
+| 12 | Fixture index, HLS generated (`node tools/fixture-server/generate-media.js`) | Press OK on "Play stream" | The test pattern plays full screen within a few seconds with the control toast; OK pauses; right seeks; Back returns to the page with the cursor |
+| 13 | A real page with a live stream or film | Choose the stream and press OK on its play control | The picture and sound start in the native player; Back returns to the page. Note any stream that fails to load (a header-dependent one) |

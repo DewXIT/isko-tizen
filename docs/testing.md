@@ -7,6 +7,15 @@ Compilation, portable C# checks, JS DOM doubles, host HTTP checks, device packag
 and real TV execution are different evidence. No TV test or deployment is performed
 for this initial import. Hardware video/input/protection/lifecycle remain unverified.
 
+## Native playback end to end (2026-10-21)
+
+On the TV, with the fixture page and a locally served HLS stream: a script-driven press on "Play stream" made the page
+request the manifest, the app detected it and started the native player without further input; the position advanced,
+pause and resume worked, a right press seeked, and a Back press returned to the page, which stayed responsive. A photo
+of the screen showed the full-screen test pattern with the control toast. Script-driven clicks, not remote presses.
+A live-streaming site was also tried: its player requested no stream at all, on the TV or in a desktop browser, so
+detection could not be exercised there. Real sites remain to be checked.
+
 ## Media decode capability on the TV (2026-10-21)
 
 Unattended probes on the physical TV (a temporary harness, `tools/tv/device-harness-media.patch`, reporting to the

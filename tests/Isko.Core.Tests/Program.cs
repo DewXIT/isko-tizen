@@ -83,6 +83,11 @@ cursor.Reset(9200); cursor.Move(0, -1, 9300);
 for (var t = 9350; t < 11000; t += 50) cursor.Move(0, -1, t);
 Check(cursor.Y == 0 && cursor.Move(0, -1, 11000).Y == -3, "Pushing up at the top scrolls up");
 Console.WriteLine("PASS page cursor: acceleration, edges, edge scrolling, idle reveal (portable model, no native input execution)");
+Check(StreamUrls.IsManifest("https://cdn.example.net/live/master.m3u8?token=abc") && StreamUrls.IsManifest("http://x.example/a/b/index.M3U8") && StreamUrls.IsManifest("https://x.example/manifest.mpd?x=1"), "HLS and DASH manifests are recognised");
+Check(!StreamUrls.IsManifest("https://x.example/seg_001.ts") && !StreamUrls.IsManifest("https://x.example/page?u=a.m3u8") && !StreamUrls.IsManifest("ftp://x.example/a.m3u8") && !StreamUrls.IsManifest(null) && !StreamUrls.IsManifest(""), "segments, query-only mentions and other schemes are not manifests");
+Check(!StreamUrls.IsManifest("https://x.example/" + new string('a', 5000) + ".m3u8"), "oversized addresses are refused");
+Check(StreamUrls.Describe("https://cdn.example.net/a.m3u8?token=SECRET") == "cdn.example.net" && StreamUrls.Describe("nope") == "[invalid]", "diagnostics keep only the host");
+Console.WriteLine("PASS stream addresses: manifests recognised, segments and look-alikes rejected, host-only description (portable)");
 
 var inputBuffer = new PageInputBuffer();
 inputBuffer.Scroll(0.5f, 0.5f, 0, 0.1f);

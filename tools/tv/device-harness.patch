@@ -1,6 +1,6 @@
 --- a/src/Isko.Tv/Program.cs
 +++ b/src/Isko.Tv/Program.cs
-@@ -825,10 +825,60 @@
+@@ -932,10 +932,60 @@
          if (page.Current != null) {
              page.Current.Position = new Position(0, 0);
              page.Current.Size = new Size(size.Width, size.Height);
@@ -59,11 +59,11 @@
      {
 +        HarnessTick(); // TEMP-HARNESS
          if (startUrl != null) { var first = startUrl; startUrl = null; Navigate(first); }
-         if (toastUntil != 0 && clock.ElapsedMilliseconds >= toastUntil) { toastUntil = 0; Render(); }
-         while (icons.TryTakeReady(out _)) homeStale = true;
+         if (nativeActive && native != null) {
+             if (native.Ended) StopNative("Koniec transmisji");
 --- a/src/Isko.Tv/PageScripts.cs
 +++ b/src/Isko.Tv/PageScripts.cs
-@@ -84,6 +84,7 @@
+@@ -91,6 +91,7 @@
            if(a){e.preventDefault();e.stopImmediatePropagation()}},true);
          const c=HTMLAnchorElement.prototype.click;
          HTMLAnchorElement.prototype.click=function(){if(this.hasAttribute('download'))return;return c.apply(this,arguments)}})()";

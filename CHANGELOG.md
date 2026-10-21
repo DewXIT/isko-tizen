@@ -4,6 +4,9 @@
 
 ### Added
 
+- Native playback: a streaming manifest (HLS or DASH) the page requests right after the user presses OK starts the TV's
+  native player (hardware H.264, which the WebView cannot decode); OK pauses, left/right seek, Back returns to the page,
+  and a menu item plays a detected stream by hand. Verified on a test stream on the TV, not yet on real sites.
 - Filter rule engine with a bundled starter list of ad-network hosts; requests to a page's own site are never blocked.
 - Popup policy driven by the user's last remote press: same-site only, listed or cross-site targets blocked.
 - Removal of full-viewport maximum-z-index layers (ad interstitials, click traps) and click-through for the remote cursor.
