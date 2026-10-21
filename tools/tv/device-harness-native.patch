@@ -1,6 +1,6 @@
 --- a/src/Isko.Tv/Program.cs
 +++ b/src/Isko.Tv/Program.cs
-@@ -933,9 +933,62 @@
+@@ -933,9 +933,60 @@
              page.Current.Position = new Position(0, 0);
              page.Current.Size = new Size(size.Width, size.Height);
          }
@@ -14,13 +14,13 @@
 +        var b = new System.Text.StringBuilder(); foreach (var c in detail) if (c >= 0x20 && c <= 0x7e && c != '"' && c != '\\') b.Append(c);
 +        var url = ReportBase + "/api/event?run=" + harnessRun + "&name=" + name + "&d=" + Uri.EscapeDataString(b.Length > 190 ? b.ToString(0, 190) : b.ToString());
 +        _ = Task.Run(async () => { try { await reportHttp.GetAsync(url); } catch { } });
-+    }
+     }
 +    private void HEval(string js) { try { page.Current?.EvaluateJavaScript(js); } catch { } }
 +    private void HClick(string id)
 +    {
 +        engine.UserInput();
 +        HEval("(()=>{const e=document.getElementById('" + id + "');if(!e)return;e.scrollIntoView({block:'center'});const r=e.getBoundingClientRect();window.__fx=(r.left+r.width/2)/innerWidth;window.__fy=(r.top+r.height/2)/innerHeight})();" + PageScripts.ClickAtExpr("(window.__fx)", "(window.__fy)"));
-     }
++    }
 +    private void NativeState(string label) { try { Report(label, "active=" + nativeActive + " starting=" + nativeStarting + " pos=" + (native?.PositionMs ?? -1) + " dur=" + (native?.DurationMs ?? -1) + " playing=" + (native?.Playing ?? false)); } catch (Exception e) { Report(label, "exc:" + e.GetType().Name); } }
 +    private void HarnessTick()
 +    {
@@ -32,8 +32,6 @@
 +            void At2(int s, Action a) { harness.Add((now + s * 1000L, a)); harness.Sort((x, y) => x.At.CompareTo(y.At)); }
 +            At2(0, () => Report("loaded", "candidate=" + (streamCandidate != null)));
 +            At2(10, () => { engine.UserInput(); HEval("window.__fx=.5;window.__fy=.45;" + PageScripts.ClickAtExpr("(window.__fx)", "(window.__fy)")); Report("clicked", "center"); });
-+            At2(17, () => { var pe = engine as ProtectedPageEngine; if (pe == null) return; var top = pe.Census.OrderByDescending(kv => kv.Value).Take(14).Select(kv => kv.Key + ":" + kv.Value); Report("census1", "streamlike=" + pe.StreamLikeSeen + " " + string.Join(" ", top.Take(7))); Report("census2", string.Join(" ", top.Skip(7))); });
-+            At2(30, () => { var pe = engine as ProtectedPageEngine; if (pe == null) return; Report("census3", "streamlike=" + pe.StreamLikeSeen + " hosts=" + pe.Census.Count + " cand=" + (streamCandidate != null)); });
 +            At2(18, () => { Report("candidate", streamCandidate == null ? "none" : "host=" + Isko.Core.StreamUrls.Describe(streamCandidate)); if (!nativeActive && streamCandidate != null) StartNative(streamCandidate); });
 +            for (var s = 22; s <= 52; s += 3) { var label = "k" + s.ToString("00"); At2(s, () => NativeState(label)); }
 +            At2(55, () => { NativeKey("XF86Back"); Report("key", "back"); });
@@ -73,23 +71,3 @@
      private static string Number(float value) => value.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture);
      public static string ClickAt(float fx, float fy) => Click.Replace("FX", Number(fx)).Replace("FY", Number(fy));
      public static string ScrollAt(float fx, float fy, float dx, float dy) =>
---- a/src/Isko.Tv/ProtectedPageEngine.cs
-+++ b/src/Isko.Tv/ProtectedPageEngine.cs
-@@ -144,6 +144,9 @@
-         }
-     }
-     private const long StreamGestureWindowMs = 8000;
-+    // TEMP-HARNESS: host-only request census for diagnosing where a site's stream comes from.
-+    public readonly System.Collections.Concurrent.ConcurrentDictionary<string, int> Census = new();
-+    public int StreamLikeSeen;
-     private readonly object manifestLock = new();
-     private string lastManifest = "";
-     private long lastManifestAt;
-@@ -152,6 +155,7 @@
-         string? url = null;
-         try { url = request.Url; } catch { }
-         var result = RequestCompletion.Apply(new NativeRequest(request, url), Volatile.Read(ref policy), Volatile.Read(ref site));
-+        try { if (url != null) { var u = new Uri(url); Census.AddOrUpdate(u.Host + (result.BlockRequested ? "!" : ""), 1, (_, n) => n + 1); var pth = u.AbsolutePath.ToLowerInvariant(); if (pth.Contains("m3u8") || pth.Contains("playlist") || pth.Contains(".mpd") || pth.Contains("manifest") || pth.EndsWith(".ts") || pth.EndsWith(".m4s")) Interlocked.Increment(ref StreamLikeSeen); } } catch { } // TEMP-HARNESS
-         // A manifest the policy lets through is a candidate for native playback; repeats (live playlists refresh) are ignored.
-         if (url != null && !result.BlockRequested) {
-             try {
