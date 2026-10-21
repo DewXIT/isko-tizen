@@ -17,6 +17,18 @@ public static class StreamUrls
         return path.EndsWith(".m3u8", StringComparison.OrdinalIgnoreCase) || path.EndsWith(".mpd", StringComparison.OrdinalIgnoreCase);
     }
 
+    // Media segments of an adaptive stream. Once a page has asked for a manifest the native player takes over, and the
+    // WebView cannot decode H.264 (feeding it segments can crash the app), so these requests are not needed.
+    public static bool IsMediaSegment(string? url)
+    {
+        if (string.IsNullOrEmpty(url) || url.Length > MaxLength) return false;
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) || (uri.Scheme != "https" && uri.Scheme != "http")) return false;
+        var path = uri.AbsolutePath;
+        foreach (var ext in SegmentExtensions) if (path.EndsWith(ext, StringComparison.OrdinalIgnoreCase)) return true;
+        return false;
+    }
+    private static readonly string[] SegmentExtensions = { ".ts", ".m4s", ".m4v", ".m4a", ".aac", ".cmfv", ".cmfa", ".mp4" };
+
     public static string Describe(string? url) =>
         Uri.TryCreate(url, UriKind.Absolute, out var uri) ? uri.Host : "[invalid]";
 }

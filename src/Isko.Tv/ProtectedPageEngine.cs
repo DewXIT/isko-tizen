@@ -68,6 +68,7 @@ internal sealed class ProtectedPageEngine : PageEngine
         Interlocked.Increment(ref generation);
         Interlocked.Exchange(ref popupPending, 0); Interlocked.Exchange(ref popupToastPending, 0);
         lock (manifestLock) lastManifest = "";
+        manifestSeen = false;
         backDeadline = 0;
         backSequence++;
         mediaPending = false; backUnavailable = false;
@@ -143,7 +144,8 @@ internal sealed class ProtectedPageEngine : PageEngine
             return request.SetResponse("HTTP/1.1 403 Forbidden\r\nContent-Type: text/plain\r\nContent-Length: 0\r\nCache-Control: no-store\r\n\r\n", Array.Empty<byte>());
         }
     }
-    private const long StreamGestureWindowMs = 8000;
+    private const long StreamGestureWindowMs = 30000;
+    private volatile bool manifestSeen;
     private readonly object manifestLock = new();
     private string lastManifest = "";
     private long lastManifestAt;
@@ -151,11 +153,19 @@ internal sealed class ProtectedPageEngine : PageEngine
     {
         string? url = null;
         try { url = request.Url; } catch { }
+        // After a manifest the WebView would only feed H.264 segments to a decoder it does not have; refuse them.
+        if (manifestSeen && url != null && Isko.Core.StreamUrls.IsMediaSegment(url)) {
+            var refused = new NativeRequest(request, url).Complete(true);
+            Interlocked.Increment(ref metrics.RequestBlockAttempts);
+            if (refused) Interlocked.Increment(ref metrics.RequestsBlocked); else Interlocked.Increment(ref metrics.RequestCompletionErrors);
+            return;
+        }
         var result = RequestCompletion.Apply(new NativeRequest(request, url), Volatile.Read(ref policy), Volatile.Read(ref site));
         // A manifest the policy lets through is a candidate for native playback; repeats (live playlists refresh) are ignored.
         if (url != null && !result.BlockRequested) {
             try {
                 if (Isko.Core.StreamUrls.IsManifest(url)) {
+                    manifestSeen = true;
                     var now = clock.ElapsedMilliseconds; bool fresh;
                     lock (manifestLock) {
                         fresh = !(url == lastManifest && now - lastManifestAt < 60000);

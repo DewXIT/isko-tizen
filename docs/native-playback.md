@@ -9,10 +9,13 @@ hands the stream a page asks for to that player.
 
 1. The request interceptor sees every request the page makes. A URL whose path ends in `.m3u8` or `.mpd` that the
    protection policy lets through is a stream candidate (`StreamUrls`). Repeats of the same playlist are ignored.
-2. If the user pressed OK within the last 8 seconds, the candidate is played at once: the page is paused and hidden, the
+2. If the user pressed OK within the last 30 seconds, the candidate is played at once: the page is paused and hidden, the
    window becomes transparent, the shell is hidden and the native player starts. A candidate without a recent press is
    only offered: a toast and the page menu item "Odtwórz wykrytą transmisję".
-3. During playback: OK pauses or resumes, left/right seek by 10 s (when the stream has a duration; live streams are not
+3. Once a page has asked for a manifest, the WebView's requests for media segments (`.ts`, `.m4s`, `.aac`, `.mp4`...) are
+   refused: the WebView cannot decode H.264, and feeding it segments crashed the app in a probe. The native player
+   fetches the stream itself.
+4. During playback: OK pauses or resumes, left/right seek by 10 s (when the stream has a duration; live streams are not
    seekable), Back or Exit returns to the page. The end of the stream and player errors return to the page as well.
 
 The stream address often carries a session token. It is kept in memory only: never logged, never persisted, not part of

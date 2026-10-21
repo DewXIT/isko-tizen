@@ -87,6 +87,8 @@ Check(StreamUrls.IsManifest("https://cdn.example.net/live/master.m3u8?token=abc"
 Check(!StreamUrls.IsManifest("https://x.example/seg_001.ts") && !StreamUrls.IsManifest("https://x.example/page?u=a.m3u8") && !StreamUrls.IsManifest("ftp://x.example/a.m3u8") && !StreamUrls.IsManifest(null) && !StreamUrls.IsManifest(""), "segments, query-only mentions and other schemes are not manifests");
 Check(!StreamUrls.IsManifest("https://x.example/" + new string('a', 5000) + ".m3u8"), "oversized addresses are refused");
 Check(StreamUrls.Describe("https://cdn.example.net/a.m3u8?token=SECRET") == "cdn.example.net" && StreamUrls.Describe("nope") == "[invalid]", "diagnostics keep only the host");
+Check(StreamUrls.IsMediaSegment("https://cdn.example.net/live/seg_00012.ts?t=1") && StreamUrls.IsMediaSegment("https://x.example/a/chunk.m4s") && StreamUrls.IsMediaSegment("https://x.example/v/audio.AAC"), "media segments are recognised");
+Check(!StreamUrls.IsMediaSegment("https://x.example/master.m3u8") && !StreamUrls.IsMediaSegment("https://x.example/app.js") && !StreamUrls.IsMediaSegment("https://x.example/a.ts.js") && !StreamUrls.IsMediaSegment(null), "manifests, scripts and look-alikes are not segments");
 Console.WriteLine("PASS stream addresses: manifests recognised, segments and look-alikes rejected, host-only description (portable)");
 
 var inputBuffer = new PageInputBuffer();
