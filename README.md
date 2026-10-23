@@ -61,7 +61,7 @@ site works. See the [compatibility analysis](docs/browser-video-analysis.md) and
 
 You need a **Tizen 9 TV**, Node.js, .NET SDK 8 and Samsung's Tizen workload/CLI
 supporting `net6.0-tizen9.0`. Create your own Samsung TV signing profile. Follow the
-[toolchain and certificate setup](docs/install.md), then:
+[step-by-step setup](docs/install.md) (tools, certificate profile, TV; also [po polsku](docs/install.pl.md)), then:
 
 ```sh
 git clone https://github.com/DewXIT/isko-tizen.git
@@ -69,6 +69,7 @@ cd isko-tizen
 mkdir -p .local
 cp tools/tv/config.example.json .local/isko-tv.json
 # Edit only the local copy: tool paths, your signing profile, optional TV address.
+node tools/tv/doctor.cjs          # checks tools, profile and TV connection, says what to fix
 node tools/tv/package.cjs --dry-run
 node tools/tv/package.cjs
 # Explicitly opt in to connecting, installing and launching:
@@ -106,6 +107,7 @@ node tests/page-scripts.test.js
 node tests/packaging.test.cjs
 node tests/diagnostics.test.js
 node tests/style.test.cjs
+node tests/setup-tools.test.cjs
 node tools/check-style.cjs
 node tools/check-public-data.cjs
 node tools/fixture-server/test-handlers.js

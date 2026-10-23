@@ -31,13 +31,14 @@ cd isko-tizen
 mkdir -p .local
 cp tools/tv/config.example.json .local/isko-tv.json
 # Uzupełnij wyłącznie prywatną kopię konfiguracji.
+node tools/tv/doctor.cjs          # sprawdza narzędzia, profil i połączenie z TV, mówi co naprawić
 node tools/tv/package.cjs --dry-run
 node tools/tv/package.cjs
 # Jawne połączenie z TV, instalacja i uruchomienie:
 node tools/tv/package.cjs --install
 ```
 
-[Pełna instrukcja](install.md) opisuje narzędzia, certyfikaty i konfigurację.
+[Pełna instrukcja krok po kroku](install.pl.md) opisuje narzędzia, certyfikat Samsung, telewizor i konfigurację.
 Budowanie bez `--install` nie łączy się z TV. Konfiguracja, certyfikaty i gotowe
 pakiety pozostają lokalne; nie wysyłaj ich do repo ani do zgłoszeń.
 

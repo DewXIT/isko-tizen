@@ -26,6 +26,12 @@ stream and, by the owner, on a live-streaming site; stream addresses stay in mem
 Protection (rule engine, popup policy, click-trap and overlay removal, download refusal)
 was exercised on the TV with fixtures; see [protection.md](protection.md) and [testing.md](testing.md).
 
+Environment (2026-10-23): the temporary tools (.NET SDK, `sdb`, `tz` under `/tmp`) and the owner's Samsung signing
+profile folder were gone, for a cause that is unknown, so a new signing profile is needed before another install.
+Follow [install.md](install.md); `node tools/tv/doctor.cjs` shows what is missing. The official Tizen SDK CLI installer
+was downloaded to `.local/downloads/` (ignored by Git) but not installed: installing it means accepting Samsung's
+license, which is the owner's step. The TV still runs the last installed build.
+
 Outstanding work: header-dependent streams (the native player sends cookies but no Referer),
 plain `<video src>` files, memory trends and long playback, remote-key behaviour, IME submit,
 more real pages (the page-side filter list is small), and a header-adding local proxy if needed.

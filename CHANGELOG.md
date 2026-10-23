@@ -14,6 +14,14 @@
 - Back slot on the control bar becomes Close when there is no history.
 - Developer-only `--start-url` build option and fixture event channel for unattended device runs; device session checklist.
 
+### Added (setup)
+
+- `docs/install.md` and `docs/install.pl.md`: a step-by-step setup from the official sources (tools, Samsung certificate
+  profile, TV developer mode, private configuration) with a troubleshooting table.
+- `node tools/tv/setup-tools.cjs` downloads Samsung's official Tizen SDK command-line installer (size-checked, nothing
+  installed, no license accepted) and prints the next steps; `node tools/tv/doctor.cjs` diagnoses the local toolchain,
+  the signing profile (by name only) and the TV connection without printing the address or reading keys.
+
 ### Changed
 
 - Code hygiene: the .NET analyzers run on the shipped code and the rules that were cleaned up (nullable, culture-sensitive

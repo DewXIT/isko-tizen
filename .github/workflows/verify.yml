@@ -38,6 +38,8 @@ jobs:
           node tools/fixture-server/test.js
       - name: Device harness patch still applies
         run: git apply --check tools/tv/device-harness.patch
+      - name: Setup helpers (download plan and environment doctor)
+        run: node tests/setup-tools.test.cjs
       - name: Style and hygiene (UTF-8, LF, final newline, no trailing whitespace or tabs)
         run: |
           node tests/style.test.cjs
