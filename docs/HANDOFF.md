@@ -19,10 +19,18 @@ use a bounded buffer and cannot grant trusted browser user activation. Media
 observation is passive. A manual video-path toggle is guarded until page load.
 One WebView is owned; close/hide disposes it, and resume requires reopening.
 
-Outstanding work: native callback lifetime and failure recovery, IME submit,
-synthetic-input limitations, cross-origin players, audio without video/loader,
-fullscreen, protection effectiveness, memory trends and long playback. These need
-separate device evidence. Do not connect to a TV without a new explicit request.
+Playback (2026-10-21): the WebView cannot decode H.264 on the tested TV, so a streaming
+manifest the page requests after the user presses OK is played by the TV's native player
+(`Tizen.Multimedia.Player`); see [native-playback.md](native-playback.md). Verified on a test
+stream and, by the owner, on a live-streaming site; stream addresses stay in memory only.
+Protection (rule engine, popup policy, click-trap and overlay removal, download refusal)
+was exercised on the TV with fixtures; see [protection.md](protection.md) and [testing.md](testing.md).
+
+Outstanding work: header-dependent streams (the native player sends cookies but no Referer),
+plain `<video src>` files, memory trends and long playback, remote-key behaviour, IME submit,
+more real pages (the page-side filter list is small), and a header-adding local proxy if needed.
+Device evidence comes from [tv-checklist.md](tv-checklist.md) and the harness patches in
+`tools/tv/`. Do not connect to a TV without a new explicit request.
 
 Use the commands and evidence boundaries in [testing.md](testing.md). Packaging
 uses each installer's own ignored config and certificate profile; see

@@ -13,7 +13,7 @@ the public compatibility scope.
 
 | Area | Next useful outcome | Evidence needed |
 | --- | --- | --- |
-| Video | Explain audio without visible video/loader and the effect of each video path. | Controlled fixture, native observations and comparison with the system browser. |
+| Video | Native playback on real pages: streams that need a Referer or Origin header, plain `<video>` files, live seeking and long sessions. | Device runs on real pages, memory samples over time, comparison with the system browser. |
 | Remote input | Reliable address submission, pointer clicks and return to browser controls. | IME and key behavior on real remotes; trusted-input and frame limits documented. |
 | Performance | Identify costly input dispatch, page work and native view overhead. | Reproducible measurements with protection on/off and bounded input load. |
 | Lifecycle | Safe native callbacks and cleanup across close, hide and reopen. | Failure cases, repeated cycles and long playback/memory observations. |
