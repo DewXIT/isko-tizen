@@ -8,7 +8,7 @@ namespace Isko.Tv;
 // Fetches a site's own touch icon/favicon for launcher tiles. Requested only from
 // the home screen (never while a page plays), cookie-less, size- and time-limited.
 // Files are named by a hash of the origin; no URL path or page content is stored.
-internal sealed class SiteIcons
+internal sealed class SiteIcons : IDisposable
 {
     private const int MaxHtml = 256 * 1024, MaxImage = 512 * 1024;
     private static readonly string[] Extensions = { ".png", ".jpg", ".webp", ".svg", ".ico" };
@@ -83,12 +83,12 @@ internal sealed class SiteIcons
                     case "type": type = value; break;
                 }
             }
-            if (!rel.Contains("icon") || href.Length == 0 || href.StartsWith("data:")) continue;
+            if (!rel.Contains("icon") || href.Length == 0 || href.StartsWith("data:", StringComparison.Ordinal)) continue;
             if (!Uri.TryCreate(baseUri, href, out var url) || (url.Scheme != "https" && url.Scheme != "http")) continue;
             var size = 0;
             foreach (var part in sizes.Split(' ', StringSplitOptions.RemoveEmptyEntries))
                 if (int.TryParse(part.Split('x', 'X')[0], out var n)) size = Math.Max(size, n);
-            var score = rel.Contains("apple-touch-icon") ? 6 : type.Contains("svg") || url.AbsolutePath.EndsWith(".svg") ? 5
+            var score = rel.Contains("apple-touch-icon") ? 6 : type.Contains("svg") || url.AbsolutePath.EndsWith(".svg", StringComparison.Ordinal) ? 5
                 : size >= 96 ? 4 : size >= 48 ? 3 : 2;
             found.Add((score, url));
         }
@@ -99,7 +99,7 @@ internal sealed class SiteIcons
         try {
             using var response = await http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
             var type = response.Content.Headers.ContentType?.MediaType ?? "";
-            if (!response.IsSuccessStatusCode || !type.StartsWith("image/")) return false;
+            if (!response.IsSuccessStatusCode || !type.StartsWith("image/", StringComparison.Ordinal)) return false;
             var extension = Extension(type, url);
             if (extension == null) return false;
             var bytes = await ReadLimited(response, MaxImage);
@@ -122,15 +122,15 @@ internal sealed class SiteIcons
         using var buffer = new MemoryStream();
         var chunk = new byte[16384];
         int read;
-        while ((read = await stream.ReadAsync(chunk, 0, chunk.Length)) > 0) {
+        while ((read = await stream.ReadAsync(chunk.AsMemory())) > 0) {
             buffer.Write(chunk, 0, read);
             if (buffer.Length >= limit) break;
         }
         return buffer.ToArray();
     }
+    public void Dispose() => http.Dispose();
     private static string Name(string origin)
     {
-        using var sha = SHA256.Create();
-        return Convert.ToHexString(sha.ComputeHash(Encoding.UTF8.GetBytes(origin))).Substring(0, 24).ToLowerInvariant();
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(origin))).Substring(0, 24).ToLowerInvariant();
     }
 }

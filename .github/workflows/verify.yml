@@ -38,5 +38,9 @@ jobs:
           node tools/fixture-server/test.js
       - name: Device harness patch still applies
         run: git apply --check tools/tv/device-harness.patch
+      - name: Style and hygiene (UTF-8, LF, final newline, no trailing whitespace or tabs)
+        run: |
+          node tests/style.test.cjs
+          node tools/check-style.cjs
       - name: Public-data gate (credentials, LAN addresses, owner paths, private files)
         run: node tools/check-public-data.cjs

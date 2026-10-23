@@ -34,7 +34,6 @@ internal sealed class ProtectedPageEngine : PageEngine
     public override string Status => "Ochrona " + (enabled ? "włączona" : "wyłączona") +
         (HasException() ? " · wyjątek dla tej strony" : "") + (fixture ? " · test /ad-probe wł." : "") +
         (requestHookFailed ? " · filtr żądań niedostępny" : "");
-    public override string Instructions => "Menu: pasek · Wstecz: fullscreen → historia → pasek";
 
     public override void Attach(WebView page, Action closePage, Action<string> open,
         Action<bool> setFullscreen, Action<string> setStatus, Measurements measurements)
@@ -333,5 +332,6 @@ internal sealed class ProtectedPageEngine : PageEngine
     public override void Dispose()
     {
         if (timer != null) { timer.Stop(); timer.Tick -= Tick; timer.Dispose(); timer = null; }
+        base.Dispose();
     }
 }

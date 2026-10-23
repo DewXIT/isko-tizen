@@ -1,0 +1,9 @@
+<Project>
+  <!-- Stricter analysis for the shipped code only; the test programs are scripts and keep the defaults. -->
+  <PropertyGroup Condition="$(MSBuildProjectDirectory.Replace('\', '/').Contains('/src/'))">
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <!-- Rules that were cleaned up stay clean. -->
+    <WarningsAsErrors>$(WarningsAsErrors);nullable;CA1001;CA1305;CA1310;CA1507;CA1822;CA1825;CA1835;CA1845;CA1850;CA2215</WarningsAsErrors>
+  </PropertyGroup>
+</Project>

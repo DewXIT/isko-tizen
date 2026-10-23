@@ -11,7 +11,7 @@ public static class StreamUrls
     // HLS playlists (.m3u8) and DASH manifests (.mpd), judged by the path alone. Media segments are not manifests.
     public static bool IsManifest(string? url)
     {
-        if (string.IsNullOrEmpty(url) || url.Length > MaxLength) return false;
+        if (url == null || url.Length == 0 || url.Length > MaxLength) return false;
         if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) || (uri.Scheme != "https" && uri.Scheme != "http")) return false;
         var path = uri.AbsolutePath;
         return path.EndsWith(".m3u8", StringComparison.OrdinalIgnoreCase) || path.EndsWith(".mpd", StringComparison.OrdinalIgnoreCase);
@@ -21,7 +21,7 @@ public static class StreamUrls
     // WebView cannot decode H.264 (feeding it segments can crash the app), so these requests are not needed.
     public static bool IsMediaSegment(string? url)
     {
-        if (string.IsNullOrEmpty(url) || url.Length > MaxLength) return false;
+        if (url == null || url.Length == 0 || url.Length > MaxLength) return false;
         if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) || (uri.Scheme != "https" && uri.Scheme != "http")) return false;
         var path = uri.AbsolutePath;
         foreach (var ext in SegmentExtensions) if (path.EndsWith(ext, StringComparison.OrdinalIgnoreCase)) return true;

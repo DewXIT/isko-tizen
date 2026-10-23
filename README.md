@@ -105,6 +105,8 @@ dotnet run --project tests/Isko.Protection.Tests -c Release
 node tests/page-scripts.test.js
 node tests/packaging.test.cjs
 node tests/diagnostics.test.js
+node tests/style.test.cjs
+node tools/check-style.cjs
 node tools/check-public-data.cjs
 node tools/fixture-server/test-handlers.js
 ```

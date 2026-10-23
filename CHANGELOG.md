@@ -16,6 +16,10 @@
 
 ### Changed
 
+- Code hygiene: the .NET analyzers run on the shipped code and the rules that were cleaned up (nullable, culture-sensitive
+  string calls, `nameof`, disposal, hashing and stream APIs) are build errors; an `.editorconfig` and a style check
+  (`tools/check-style.cjs`, also in CI) keep files UTF-8, LF, newline-terminated and free of trailing whitespace and tabs.
+  Unused members were removed. Site icon fetching now disposes its HTTP client; the page engine calls its base `Dispose`.
 - Per-request policy evaluation parses the page once and each request once and does a hashed in-place host lookup: about 80% less garbage per request in a desktop benchmark (not a TV measurement).
 - The overlay sweep observer examines only added nodes; blocked-popup notices are coalesced.
 - The `Verify` GitHub Actions workflow is now active (portable checks only).

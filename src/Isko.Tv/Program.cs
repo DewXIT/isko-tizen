@@ -49,7 +49,7 @@ internal sealed class Program : NUIApplication
     private readonly List<string> nativeNotes = new();
     private void NativeNote(string text)
     {
-        nativeNotes.Add(DateTime.Now.ToString("HH:mm:ss") + " " + text);
+        nativeNotes.Add(DateTime.Now.ToString("HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture) + " " + text);
         while (nativeNotes.Count > 6) nativeNotes.RemoveAt(0);
     }
     private readonly List<Element> elements = new();
@@ -282,7 +282,7 @@ internal sealed class Program : NUIApplication
     {
         if (!Uri.TryCreate(url, UriKind.Absolute, out var uri)) return "Strona";
         var host = uri.IdnHost.StartsWith("www.", StringComparison.OrdinalIgnoreCase) ? uri.IdnHost.Substring(4) : uri.IdnHost;
-        return host.Length > max ? host.Substring(0, max - 1) + "…" : host;
+        return host.Length > max ? string.Concat(host.AsSpan(0, max - 1), "…") : host;
     }
     private static Color TintFor(string name)
     {
@@ -293,7 +293,7 @@ internal sealed class Program : NUIApplication
     private void UpdateClock()
     {
         var now = DateTime.Now;
-        var time = now.ToString("HH:mm");
+        var time = now.ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture);
         if (clockLabel.Text != time) {
             clockLabel.Text = time;
             dateLabel.Text = Days[(int)now.DayOfWeek] + ", " + now.Day + " " + Months[now.Month - 1];
@@ -320,7 +320,7 @@ internal sealed class Program : NUIApplication
         x += 96;
         Round(Layer.BarItems, "bar-reload", "reload", x, 60, 80, Reload); x += 96;
         var fieldWidth = 1836 - x - (canBack ? 16 + 80 + 16 + 80 + 16 + 80 : 16 + 80 + 16 + 80);
-        var field = Field(Layer.BarItems, "bar-address", DisplaySite(currentUrl, 60), currentUrl.StartsWith("https:") ? "lock" : "search",
+        var field = Field(Layer.BarItems, "bar-address", DisplaySite(currentUrl, 60), currentUrl.StartsWith("https:", StringComparison.Ordinal) ? "lock" : "search",
             x, 60, fieldWidth, 80, () => BeginEdit(currentUrl), Color.White);
         x += fieldWidth + 16;
         Round(Layer.BarItems, "bar-favorite", session.IsFavorite(currentUrl) ? "star-on" : "star", x, 60, 80, ToggleFavorite); x += 96;
@@ -506,7 +506,7 @@ internal sealed class Program : NUIApplication
         if (args.Key.KeyPressedName is "Return" or "KP_Enter" && address.HasFocus()) Submit(address.Text);
     }
     private static bool LooksLikeAddress(string text) =>
-        text.Contains("://") || (!text.Contains(' ') && (text.Contains('.') || text.StartsWith("localhost")));
+        text.Contains("://") || (!text.Contains(' ') && (text.Contains('.') || text.StartsWith("localhost", StringComparison.Ordinal)));
     private void Submit(string input)
     {
         var text = input.Trim();
@@ -626,7 +626,7 @@ internal sealed class Program : NUIApplication
     {
         var video = native;
         if (video == null) return;
-        string Clock(int ms) { var t = TimeSpan.FromMilliseconds(Math.Max(0, ms)); return t.TotalHours >= 1 ? t.ToString(@"h\:mm\:ss") : t.ToString(@"m\:ss"); }
+        string Clock(int ms) { var t = TimeSpan.FromMilliseconds(Math.Max(0, ms)); return t.TotalHours >= 1 ? t.ToString(@"h\:mm\:ss", System.Globalization.CultureInfo.InvariantCulture) : t.ToString(@"m\:ss", System.Globalization.CultureInfo.InvariantCulture); }
         var position = Clock(video.PositionMs);
         var extent = video.CanSeek ? " / " + Clock(video.DurationMs) : " · na żywo";
         SetStatus((video.Playing ? "▶ " : "⏸ ") + position + extent + "   OK pauza · ← → ±10 s · Wstecz: strona");
@@ -768,7 +768,7 @@ internal sealed class Program : NUIApplication
         var label = Label(text, px, color, weight, align, multi);
         Add(label, layer, x, y, width, height, Color.Transparent); return label;
     }
-    private TextLabel Text(View parent, string text, float x, float y, float width, float height, float px, Color color,
+    private static TextLabel Text(View parent, string text, float x, float y, float width, float height, float px, Color color,
         string weight = Regular, HorizontalAlignment align = HorizontalAlignment.Begin)
     {
         var label = Label(text, px, color, weight, align, false);
@@ -1100,9 +1100,9 @@ internal sealed class Program : NUIApplication
         if (dy == 1 && chrome.Overlay == ChromeOverlay.Controls) { HideOverlay(); return true; }
         var current = Find((View)sender);
         // The side rail is its own lane: entered with Left, walked with Up/Down.
-        var inRail = current?.Key.StartsWith("rail-") == true;
+        var inRail = current?.Key.StartsWith("rail-", StringComparison.Ordinal) == true;
         var controls = elements.Where(e => e.Control && e.Visible && LayerActive(e.Layer) &&
-            (dx != 0 || e.Key.StartsWith("rail-") == inRail)).ToList();
+            (dx != 0 || e.Key.StartsWith("rail-", StringComparison.Ordinal) == inRail)).ToList();
         var index = controls.FindIndex(e => ReferenceEquals(e.View, sender));
         var next = DirectionalFocus.Next(controls.Select(e => e.Region).ToArray(), index, dx, dy);
         if (next == index && dy == -1 && chrome.Overlay == ChromeOverlay.Address) FocusManager.Instance.SetCurrentFocusView(address);
@@ -1147,6 +1147,6 @@ internal sealed class Program : NUIApplication
             if (inputTimer != null) { inputTimer.Stop(); inputTimer.Tick -= FlushPageInput; inputTimer.Dispose(); inputTimer = null; }
             loadingMotion?.Stop(); loadingMotion?.Dispose(); loadingMotion = null;
             if (window != null) { window.Resized -= OnResized; window.KeyEvent -= OnWindowKey; ClosePage(false); }
-        } finally { engine.Dispose(); metrics.Dispose(); base.OnTerminate(); }
+        } finally { engine.Dispose(); metrics.Dispose(); icons?.Dispose(); base.OnTerminate(); }
     }
 }

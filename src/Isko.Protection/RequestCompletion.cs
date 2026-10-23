@@ -21,8 +21,8 @@ namespace Isko.Protection
     {
         public static CompletionResult Apply<T>(T request, ProtectionPolicy policy, string site) where T : IRequestCompletion
         {
-            if (request == null) throw new ArgumentNullException("request");
-            if (policy == null) throw new ArgumentNullException("policy");
+            if (request == null) throw new ArgumentNullException(nameof(request));
+            if (policy == null) throw new ArgumentNullException(nameof(policy));
             bool block, completed;
             try { block = !policy.EvaluateRequest(site, request.Url, true).Allowed; }
             catch { block = false; }

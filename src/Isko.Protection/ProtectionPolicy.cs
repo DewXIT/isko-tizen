@@ -34,7 +34,7 @@ namespace Isko.Protection
         {
             Host = UrlSafety.NormalizeHost(host);
             if (String.IsNullOrEmpty(path) || !path.StartsWith("/", StringComparison.Ordinal) || path.Contains("?") || path.Contains("#"))
-                throw new ArgumentException("An absolute path without query or fragment is required.", "path");
+                throw new ArgumentException("An absolute path without query or fragment is required.", nameof(path));
             Path = path;
         }
         internal bool Matches(Uri uri) { return String.Equals(Host, uri.IdnHost, StringComparison.OrdinalIgnoreCase) && Path == uri.AbsolutePath; }
@@ -57,7 +57,7 @@ namespace Isko.Protection
         public void SetHostException(string host, bool exempt)
         { host = UrlSafety.NormalizeHost(host); if (exempt) exceptions.Add(host); else exceptions.Remove(host); }
         public void AddRequestRule(RequestRule rule)
-        { if (rule == null) throw new ArgumentNullException("rule"); requestRules.Add(rule); }
+        { if (rule == null) throw new ArgumentNullException(nameof(rule)); requestRules.Add(rule); }
         public void AddRequestHost(string host) { requestHosts.Add(UrlSafety.NormalizeHost(host)); }
         // Set before the policy is published; a published policy is never mutated.
         public void SetFilters(FilterSet set) { filters = set ?? FilterSet.Empty; }
@@ -85,8 +85,6 @@ namespace Isko.Protection
         public bool NeedsRequestInterception(string currentUrl) =>
             Enabled && (requestHosts.Count != 0 || requestRules.Count != 0 || filters.HasRequestRules) && !Exempt(currentUrl);
 
-        public PolicyDecision EvaluatePopup(string targetUrl)
-        { return EvaluatePopup(null, targetUrl); }
         // Pass current top-level page: site exceptions belong to the initiating site.
         public PolicyDecision EvaluatePopup(string currentUrl, string targetUrl)
         {
@@ -112,7 +110,7 @@ namespace Isko.Protection
 
         public PolicyDecision EvaluateNavigation(NavigationRequest request)
         {
-            if (request == null) throw new ArgumentNullException("request");
+            if (request == null) throw new ArgumentNullException(nameof(request));
             Uri target;
             if (!UrlSafety.TryHttpUri(request.TargetUrl, out target)) return new PolicyDecision(false, "unsafe-or-unsupported-url");
             if (!Enabled || Exempt(request.CurrentUrl)) return new PolicyDecision(true, "protection-disabled-or-site-exempt");

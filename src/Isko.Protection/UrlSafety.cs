@@ -35,10 +35,10 @@ namespace Isko.Protection
         internal static string NormalizeHost(string host)
         {
             if (String.IsNullOrWhiteSpace(host) || host.Contains("/") || host.Contains(":") || host.Contains("@") || host.Contains("?") || host.Contains("#"))
-                throw new ArgumentException("Exact DNS host or IPv4 address required.", "host");
+                throw new ArgumentException("Exact DNS host or IPv4 address required.", nameof(host));
             Uri uri;
             if (!TryHttpUri("https://" + host + "/", out uri) || uri.HostNameType == UriHostNameType.Unknown)
-                throw new ArgumentException("Invalid host.", "host");
+                throw new ArgumentException("Invalid host.", nameof(host));
             return uri.IdnHost;
         }
     }

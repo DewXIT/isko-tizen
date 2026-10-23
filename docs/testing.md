@@ -117,8 +117,8 @@ cover staged source and root-commit contents before publishing.
 
 `.github/workflows/verify.yml` runs on every push and pull request (read-only token, 20 minute limit): the API12
 reference build, the protection and core tests (including the hidden-member audit), the page-script, diagnostics and
-packaging tests, the fixture server tests, a check that `tools/tv/device-harness.patch` still applies, and the
-public-data gate. It does not run on a TV and never signs or installs anything; a green run is a portable check, not
+packaging tests, the fixture server tests, a check that `tools/tv/device-harness.patch` still applies, the style and
+hygiene check and the public-data gate. The shipped projects build with the .NET analyzers; the cleaned-up rules are errors. It does not run on a TV and never signs or installs anything; a green run is a portable check, not
 a device result.
 
 ## Future device work

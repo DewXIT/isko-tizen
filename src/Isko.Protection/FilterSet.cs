@@ -52,7 +52,7 @@ namespace Isko.Protection
         private readonly List<string> genericCosmetic = new List<string>();
         private readonly Dictionary<string, List<string>> hostCosmetic = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
         private readonly List<int> lineByIndex = new List<int>();
-        private int[] hits = new int[0];
+        private int[] hits = Array.Empty<int>();
 
         public static readonly FilterSet Empty = new FilterSet();
 
@@ -299,8 +299,6 @@ namespace Isko.Protection
             int length = a.Length - startA;
             return length == b.Length - startB && String.Compare(a, startA, b, startB, length, StringComparison.OrdinalIgnoreCase) == 0;
         }
-
-        internal static string SiteKey(string host) { return host.Substring(SiteKeyStart(host)); }
 
         // Start index of the site key (last two labels, or three under a two-part suffix such as co.uk),
         // found by scanning dots from the end so no label array or substring is built.

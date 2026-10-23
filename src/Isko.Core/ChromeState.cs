@@ -38,7 +38,10 @@ public sealed class ChromeState
 
 public readonly struct FocusRegion
 {
-    public readonly float X, Y, Width, Height;
+    public float X { get; }
+    public float Y { get; }
+    public float Width { get; }
+    public float Height { get; }
     public FocusRegion(float x, float y, float width, float height)
     { X = x; Y = y; Width = width; Height = height; }
 }

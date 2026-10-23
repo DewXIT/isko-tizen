@@ -1,0 +1,28 @@
+'use strict';
+const assert = require('assert');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const { check } = require('../tools/check-style.cjs');
+
+const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'isko-style-'));
+const write = (name, content) => fs.writeFileSync(path.join(dir, name), content);
+write('ok.cs', 'class A\n{\n}\n');
+write('trailing.cs', 'class A \n{\n}\n');
+write('crlf.js', 'a\r\nb\r\n');
+write('nonewline.json', '{}');
+write('tabs.cs', 'class A\n{\n\tint x;\n}\n');
+write('bom.cs', Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from('class A { }\n')]));
+write('doc.md', 'two spaces  \nare allowed in markdown\n');
+write('change.patch', '+line with trailing space \n');
+write('image.png', 'not text');
+const problems = check(['ok.cs', 'trailing.cs', 'crlf.js', 'nonewline.json', 'tabs.cs', 'bom.cs', 'doc.md', 'change.patch', 'image.png'], dir).join('\n');
+assert(!problems.includes('ok.cs'), 'a clean file passes');
+assert(problems.includes('trailing.cs:1: trailing whitespace'), 'trailing whitespace is reported');
+assert(problems.includes('crlf.js: CR line ending'), 'CR line endings are reported');
+assert(problems.includes('nonewline.json: no final newline'), 'a missing final newline is reported');
+assert(problems.includes('tabs.cs:3: tab indentation'), 'tab indentation is reported');
+assert(problems.includes('bom.cs: byte order mark'), 'a byte order mark is reported');
+assert(!problems.includes('doc.md') && !problems.includes('change.patch') && !problems.includes('image.png'), 'Markdown, patches and binaries are not judged by these rules');
+fs.rmSync(dir, { recursive: true, force: true });
+console.log('PASS style checker: trailing whitespace, CR, final newline, tabs and BOM are found; Markdown, patches and binaries are exempt');

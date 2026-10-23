@@ -6,7 +6,6 @@ namespace Isko.Tv;
 internal class PageEngine : IDisposable
 {
     public virtual string Status => "Ochrona stron: niedostępna w tym wariancie.";
-    public virtual string Instructions => "Menu / Wstecz: pasek · Zamknij: powrót do startu";
     public virtual void Attach(WebView view, Action close, Action<string> navigate, Action<bool> fullscreen, Action<string> status, Measurements metrics) { }
     public virtual void Started(string url) { }
     public virtual void Loaded(string url) { }
